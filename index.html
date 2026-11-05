@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Quiet Balloon</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Luckiest+Guy&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<style>
+:root{--ink:#2a1b4d;--sun:#ffd23f;--paper:#fffdf5;--pink:#ff6b9d;--mint:#3dbb7e;--sky:#7fd4ff}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:"Fredoka","Trebuchet MS",system-ui,sans-serif;font-weight:500;color:var(--ink);background:linear-gradient(var(--sky),#e4f7ff 70%);overflow:hidden;-webkit-user-select:none;user-select:none}
+.shake{animation:shake .5s}
+@keyframes shake{0%,100%{transform:none}20%{transform:translate(-14px,6px)}40%{transform:translate(12px,-8px)}60%{transform:translate(-8px,-4px)}80%{transform:translate(6px,6px)}}
+/* scenery */
+#sun{position:fixed;top:16vh;left:6vw;width:min(15vh,15vw);aspect-ratio:1;border-radius:50%;background:var(--sun);border:4px solid var(--ink);box-shadow:0 0 0 14px #ffd23f66,0 6px 0 var(--ink)}
+.cloud{position:fixed;width:200px;height:70px;background:#fff;border:4px solid var(--ink);border-radius:60px;box-shadow:0 6px 0 var(--ink);animation:drift linear infinite}
+.cloud::before,.cloud::after{content:"";position:absolute;background:#fff;border:4px solid var(--ink);border-bottom-color:#fff;border-radius:50%}
+.cloud::before{width:80px;height:80px;left:26px;top:-44px}.cloud::after{width:60px;height:60px;right:34px;top:-30px}
+@keyframes drift{from{left:-260px}to{left:105vw}}
+#hills{position:fixed;left:0;right:0;bottom:0;width:100%;height:30vh}
+/* screens */
+.screen{position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:20px;text-align:center;z-index:2}
+.screen.on{display:flex}
+h1{font-family:"Luckiest Guy","Impact",sans-serif;font-weight:400;margin:0;font-size:clamp(3rem,11vw,7.5rem);letter-spacing:.03em;line-height:.95;color:#fff;
+ text-shadow:-4px -4px 0 var(--ink),4px -4px 0 var(--ink),-4px 4px 0 var(--ink),4px 4px 0 var(--ink),0 9px 0 var(--ink);transform:rotate(-3deg)}
+.sub{max-width:30em;font-size:clamp(1.1rem,2.4vw,1.5rem);background:var(--paper);border:4px dashed var(--ink);border-radius:18px;padding:12px 18px;transform:rotate(1deg)}
+.row{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;align-items:center}
+button{font:inherit;font-weight:700;font-size:1.2rem;color:var(--ink);background:var(--sun);border:4px solid var(--ink);border-radius:16px;padding:12px 22px;cursor:pointer;box-shadow:0 6px 0 var(--ink);transition:transform .08s,box-shadow .08s}
+button:hover{transform:translateY(-2px) rotate(-1deg)}
+button:active{transform:translateY(5px);box-shadow:0 1px 0 var(--ink)}
+button.pink{background:var(--pink)}button.mint{background:var(--mint)}button.white{background:var(--paper)}
+button:focus-visible,input:focus-visible{outline:4px solid #fff;outline-offset:3px}
+input{font:inherit;font-weight:700;color:var(--ink)}
+.sticker{background:var(--paper);border:4px solid var(--ink);border-radius:16px;padding:8px 14px;box-shadow:0 5px 0 var(--ink)}
+/* display */
+#bar{position:fixed;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;z-index:5;pointer-events:none}
+#bar>*{pointer-events:auto}
+#status{font-size:1rem;transform:rotate(-1deg);max-width:26vw}
+#bar button{padding:8px 14px;font-size:1.05rem}
+#bar>.row{flex-wrap:nowrap;gap:10px}
+#panel{gap:8px}
+#ticket{display:flex;gap:12px;align-items:center;background:var(--sun);border:4px dashed var(--ink);border-radius:16px;padding:6px 14px;transform:rotate(1.5deg)}
+#code{font-family:"Luckiest Guy",sans-serif;font-size:2.4rem;letter-spacing:.12em;line-height:1}
+#ticket small{font-size:.9rem;line-height:1.1;text-align:left}
+#panel{position:fixed;top:92px;right:14px;z-index:7;display:none;flex-direction:column;gap:12px;width:280px;text-align:left;transform:rotate(1deg)}
+#panel.on{display:flex}
+#panel input[type=range]{width:100%;accent-color:var(--pink)}
+#stats{position:fixed;right:16px;bottom:16px;z-index:5;display:flex;flex-direction:column;gap:10px;font-size:1.2rem;text-align:center;transform:rotate(-2deg)}
+#stats b{font-family:"Luckiest Guy",sans-serif;font-weight:400;font-size:2rem;display:block;line-height:1}
+#meter{position:fixed;left:18px;bottom:16px;z-index:5;width:46px;height:44vh;background:var(--paper);border:4px solid var(--ink);border-radius:26px;overflow:hidden;display:flex;align-items:flex-end;box-shadow:0 5px 0 var(--ink)}
+#fill{width:100%;height:0}
+#flag{position:absolute;left:0;right:0;border-top:4px dashed var(--pink)}
+#bw{position:fixed;left:50%;bottom:11vh;transform-origin:50% 100%;z-index:3;touch-action:none;cursor:pointer}
+#balloon{display:block;height:min(46vh,70vw);filter:drop-shadow(0 8px 0 #2a1b4d33)}
+#msg{position:fixed;left:0;right:0;top:20vh;z-index:9;display:none;justify-content:center;pointer-events:none}
+#msg span{font-family:"Luckiest Guy",sans-serif;font-size:clamp(4rem,16vw,11rem);color:var(--sun);transform:rotate(-6deg);text-shadow:-5px -5px 0 var(--ink),5px -5px 0 var(--ink),-5px 5px 0 var(--ink),5px 5px 0 var(--ink),0 12px 0 var(--ink);animation:boing .5s cubic-bezier(.3,1.8,.5,1)}
+#msg small{display:block;font-family:"Fredoka",sans-serif;font-size:clamp(1.4rem,3.5vw,2.4rem);color:#fff;text-align:center;margin-top:8px;text-shadow:0 3px 0 var(--ink);transform:rotate(-2deg)}
+@keyframes boing{from{transform:scale(0) rotate(-30deg)}to{transform:scale(1) rotate(-6deg)}}
+.bit{position:fixed;width:18px;height:12px;border:3px solid var(--ink);border-radius:3px;pointer-events:none;z-index:8}
+/* phone */
+#mic{position:relative;width:150px;height:150px;border-radius:50%;background:var(--pink);border:5px solid var(--ink);box-shadow:0 8px 0 var(--ink);display:flex;align-items:center;justify-content:center;font-size:4rem}
+#ring{position:absolute;inset:-6px;border-radius:50%;border:6px solid var(--sun);transform:scale(1);opacity:.9;transition:transform .08s}
+#pcode{font-size:2.4rem;width:5.2ch;text-align:center;letter-spacing:.2em;padding:8px;border:4px solid var(--ink);border-radius:14px;background:var(--paper)}
+html,body{overscroll-behavior:none}
+#home{overflow-y:auto;justify-content:flex-start;gap:12px}
+#home h1{font-size:clamp(2.2rem,6vw,4rem)}
+#cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:18px;width:min(1180px,96vw);margin:6px auto 20px}
+.card{border:4px solid var(--ink);border-radius:22px;padding:14px;box-shadow:0 7px 0 var(--ink);display:flex;flex-direction:column;align-items:center;gap:6px;transition:transform .15s}
+.card:hover{transform:translateY(-4px) rotate(-1deg)}
+.card .art{font-size:3.4rem;line-height:1;background:#ffffffaa;border:4px solid var(--ink);border-radius:50%;width:90px;height:90px;display:flex;align-items:center;justify-content:center}
+.card h3{margin:4px 0 0;font-size:1.3rem}.card p{margin:0;font-size:.95rem;line-height:1.25;min-height:2.5em;flex:1}
+.card.soon{filter:saturate(.7)}.card button:disabled{opacity:.65;cursor:default}
+#dock{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);z-index:5;display:flex;gap:10px}
+#dock button{padding:6px 12px;font-size:.95rem}
+#modeTag{position:fixed;top:84px;left:18px;z-index:5;font-size:1.2rem;transform:rotate(-1deg)}
+.lf{display:inline-block;font-size:1.6rem;margin-left:2px}.lf.lost{filter:grayscale(1);opacity:.3}
+.lf.hit{animation:hurt .8s}.lf.gain{animation:gainl .9s}
+@keyframes hurt{0%{transform:scale(1.7) rotate(-20deg);opacity:1}50%{transform:scale(1.2) rotate(20deg)}100%{transform:scale(1)}}
+@keyframes gainl{0%{transform:scale(0)}60%{transform:scale(2)}100%{transform:scale(1)}}
+#badge{position:fixed;left:50%;top:36%;z-index:9;text-align:center;pointer-events:none;opacity:0;transform:translate(-50%,-50%) scale(0)}
+#badge.on{animation:badgein 4.5s forwards}
+@keyframes badgein{0%{transform:translate(-50%,-50%) scale(0) rotate(-25deg);opacity:0}10%{transform:translate(-50%,-50%) scale(1.15) rotate(4deg);opacity:1}16%{transform:translate(-50%,-50%) scale(1) rotate(0)}88%{transform:translate(-50%,-50%) scale(1);opacity:1}100%{transform:translate(-50%,-50%) scale(.8);opacity:0}}
+#badge svg{width:min(34vh,60vw);filter:drop-shadow(0 0 18px #fff) drop-shadow(0 8px 0 #2a1b4d55)}
+#badge .sticker{display:inline-block;margin-top:6px;max-width:80vw}#bName{font-family:"Luckiest Guy",sans-serif;font-size:1.8rem}
+#calib,#over{display:none;position:fixed;inset:0;z-index:10;background:#2a1b4dcc;align-items:center;justify-content:center}
+#calib .sticker,#over .sticker{text-align:center;max-width:440px;padding:22px;display:flex;flex-direction:column;gap:12px;align-items:center}
+#calN{font-family:"Luckiest Guy",sans-serif;font-size:4rem;line-height:1}
+#rewBox label{display:block;margin-top:8px}#rewBox input{width:100%;font-size:1rem;padding:6px;border:3px solid var(--ink);border-radius:10px;margin-top:4px}
+details summary{cursor:pointer;margin:4px 0}
+#scene{display:none;position:absolute;inset:0;z-index:1;background:linear-gradient(#7fd4ff,#e4f7ff);overflow:hidden}
+#nightv{position:absolute;inset:0;background:linear-gradient(#10153f,#3b2f7a);opacity:0;transition:opacity 2.5s;color:#fff8c0}
+#scene.night #nightv{opacity:1}
+#mbar{display:none;position:fixed;bottom:60px;left:50%;transform:translateX(-50%);width:min(60vw,520px);height:40px;z-index:5;padding:0;overflow:hidden;text-align:center;line-height:32px;font-weight:700}
+#mfill{position:absolute;left:0;top:0;bottom:0;width:0;background:#5be37d;transition:width .3s}#mlab{position:relative}
+#cd{display:none;position:fixed;top:24vh;left:0;right:0;text-align:center;font-family:"Luckiest Guy",sans-serif;font-size:22vh;color:#fff;text-shadow:-5px -5px 0 #2a1b4d,5px -5px 0 #2a1b4d,-5px 5px 0 #2a1b4d,5px 5px 0 #2a1b4d,0 10px 0 #2a1b4d;z-index:6;pointer-events:none}
+#wx{position:absolute;inset:0;background:#7fd4ff;transition:background 2.5s}
+#wx.s1{background:#9fd0ea}#wx.s2{background:#8a9fb5}#wx.s3{background:#5d6e8a}
+#wx .wsun{position:absolute;left:6%;top:6%;font-size:16vh;transition:opacity 2.5s}#wx.s2 .wsun{opacity:.35}#wx.s3 .wsun{opacity:0}
+#wx .wc{position:absolute;font-size:13vh;opacity:0;transition:opacity 2.5s,filter 2.5s}
+#wx.s1 .wc:nth-of-type(2),#wx.s2 .wc,#wx.s3 .wc{opacity:1}#wx.s3 .wc{filter:brightness(.5)}
+#wx.s2 .wc,#wx.s3 .wc{animation:wind 5s ease-in-out infinite alternate}
+@keyframes wind{from{transform:translateX(-4vw)}to{transform:translateX(6vw)}}
+#wx .bf{position:absolute;font-size:6vh;opacity:0;transition:opacity 2s;animation:flit 3s ease-in-out infinite alternate}#wx.s0 .bf{opacity:1}
+@keyframes flit{from{transform:translate(0,0)}to{transform:translate(6vw,-6vh)}}
+#rain{position:absolute;inset:0;opacity:0;transition:opacity 2s}#wx.s3 #rain{opacity:1}
+#rain i{position:absolute;top:-10vh;width:3px;height:5vh;background:#bfe6ff;border-radius:3px;animation:rainf .9s linear infinite}
+@keyframes rainf{to{transform:translateY(115vh)}}
+#rbow{position:absolute;left:50%;top:14%;transform:translateX(-50%);font-size:42vh;opacity:0;transition:opacity 2s}#wx.rb #rbow{opacity:1}
+#wg{position:absolute;left:0;right:0;bottom:0;height:16vh;background:#3dbb7e;border-top:5px solid #2a1b4d;transition:filter 2.5s}#wx.s3 #wg{filter:brightness(.6)}
+#cel{display:none;position:fixed;inset:0;z-index:12;background:#2a1b4d88;align-items:center;justify-content:center;flex-direction:column;gap:14px;overflow:hidden}
+#celBig{font-size:min(30vh,40vw);line-height:1;filter:drop-shadow(0 8px 0 #0004);animation:boing .6s cubic-bezier(.3,1.8,.5,1)}
+#celMsg{font-family:"Luckiest Guy",sans-serif;font-size:clamp(2.2rem,7vw,5rem);color:var(--sun);text-align:center;padding:0 16px;text-shadow:-4px -4px 0 #2a1b4d,4px -4px 0 #2a1b4d,-4px 4px 0 #2a1b4d,4px 4px 0 #2a1b4d,0 8px 0 #2a1b4d}
+.cp{position:fixed;font-size:6vh;pointer-events:none;z-index:13}
+#qrBox{display:none;position:fixed;top:84px;right:14px;z-index:4;text-align:center;font-size:.9rem;padding:6px}
+#qrImg svg{width:120px;height:120px;display:block}
+#celBox label{display:block;margin-top:6px}
+#dock select{width:auto;margin:0;font-size:.95rem}
+select{font:inherit;font-weight:700;color:var(--ink);background:#fff;border:3px solid var(--ink);border-radius:10px;padding:6px;width:100%;margin-top:4px}
+#panel{max-height:calc(100vh - 110px);overflow:auto}
+#focusT{display:none;position:fixed;top:84px;left:50%;transform:translateX(-50%) rotate(-1deg);z-index:5;text-align:center;font-size:1.2rem}
+#focusT b{font-family:"Luckiest Guy",sans-serif;font-weight:400;font-size:2rem;display:block;line-height:1}
+@media (prefers-reduced-motion:reduce){.cloud{animation:none}.shake,#msg span{animation:none}}
+/* ===== UI refresh ===== */
+body{background:linear-gradient(180deg,#58c6ff,#b9edff 42%,#e9fbff 72%,#fff3c4);background-size:100% 150%;animation:skyshift 16s ease-in-out infinite alternate}
+@keyframes skyshift{to{background-position:0 100%}}
+button,button.pink,button.mint,button.white{background-image:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,0) 55%)}
+button:hover{transform:translateY(-3px) scale(1.03)}
+#sun{left:9vw;top:20vh;animation:sunpulse 4s ease-in-out infinite}
+@keyframes sunpulse{0%,100%{box-shadow:0 0 0 14px #ffd23f66,0 0 40px 20px #ffd23f55,0 6px 0 var(--ink)}50%{box-shadow:0 0 0 26px #ffd23f33,0 0 70px 36px #ffd23f66,0 6px 0 var(--ink)}}
+#fx{position:fixed;inset:0;pointer-events:none;overflow:hidden}
+#fx i{position:absolute;bottom:-60px;border-radius:50%;background:radial-gradient(circle at 30% 30%,#fff,rgba(255,255,255,.25));border:2px solid #fff;opacity:.7;animation:rise linear infinite}
+@keyframes rise{from{transform:translate(0,0)}50%{transform:translate(22px,-55vh)}to{transform:translate(-12px,-115vh)}}
+#balloon{transform-origin:50% 100%;animation:sway 3.6s ease-in-out infinite alternate}
+@keyframes sway{from{transform:rotate(-3deg) translateY(0)}to{transform:rotate(3deg) translateY(-10px)}}
+
+/* top-left: back + status */
+#bar{right:auto;justify-content:flex-start;align-items:center;gap:12px}
+#bar button{height:48px;padding:0 18px;font-size:1.05rem}
+#status{font-size:.85rem;line-height:1.2;padding:6px 12px;max-width:min(30vw,340px);transform:none;border-width:3px;box-shadow:0 4px 0 var(--ink)}
+#modeTag{top:70px;left:14px;font-size:1rem;padding:5px 12px}
+#focusT{top:52px;font-size:1rem;padding:4px 14px}#focusT b{font-size:1.6rem}
+
+/* right column: equal-width aligned stack */
+#rcol{position:fixed;top:12px;right:12px;width:344px;z-index:5;display:flex;flex-direction:column;gap:12px}
+#tools{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+#tools button{width:100%;height:48px;padding:0 6px;font-size:.95rem;display:flex;align-items:center;justify-content:center;white-space:nowrap}
+#tools #bMic{grid-column:1/-1}
+#join{display:flex;align-items:center;justify-content:center;gap:14px;background:var(--sun);border:4px dashed var(--ink);border-radius:16px;padding:8px 12px;box-shadow:0 5px 0 var(--ink);transform:none}
+#qrBox{position:static;padding:3px;border:3px solid var(--ink);border-radius:10px;box-shadow:none;background:#fff;line-height:0}
+#qrImg svg{width:76px;height:76px}
+#ticket{background:none;border:0;padding:0;transform:none;flex-direction:column;gap:2px;align-items:center}
+#ticket small{font-size:.8rem;font-weight:700;text-align:center}#ticket small br{display:none}
+#code{font-size:2rem}
+#stats{position:static;transform:none;display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:.9rem}
+#stats .sticker{padding:6px 8px;border-width:3px;box-shadow:0 4px 0 var(--ink);border-radius:14px}
+#stats .wide{grid-column:1/-1}
+#stats b{font-size:1.7rem}
+#panel{top:70px;right:12px;width:344px;transform:none}
+
+/* noise meter: big thermometer */
+#mwrap{position:fixed;left:16px;bottom:16px;z-index:5;width:108px;display:flex;flex-direction:column;align-items:center;gap:8px}
+#lvNum{font-family:"Luckiest Guy",sans-serif;font-size:1.9rem;line-height:1;width:70px;height:70px;border-radius:50%;background:var(--paper);border:4px solid var(--ink);box-shadow:0 5px 0 var(--ink);display:flex;align-items:center;justify-content:center}
+#meter{position:relative;left:auto;bottom:auto;width:88px;height:54vh;border-radius:44px;border-width:5px;
+ background:linear-gradient(to top,rgba(61,187,126,.22) 0 55%,rgba(255,210,63,.28) 55% 78%,rgba(255,107,157,.32) 78%)}
+#meter::before{content:"";position:absolute;left:0;top:0;bottom:0;width:18px;z-index:2;pointer-events:none;opacity:.55;background:repeating-linear-gradient(to top,var(--ink) 0 3px,transparent 3px 10%)}
+#fill{position:relative;box-shadow:inset 0 8px 0 rgba(255,255,255,.4);border-radius:0 0 0 0;transition:background .2s}
+#fill::after{content:"";position:absolute;inset:0;background-image:linear-gradient(-45deg,rgba(255,255,255,.3) 25%,transparent 25% 50%,rgba(255,255,255,.3) 50% 75%,transparent 75%);background-size:30px 30px;animation:stripes .9s linear infinite}
+@keyframes stripes{to{background-position:30px 0}}
+#flag{z-index:3;border-top-width:5px}
+#flag::after{content:"POP LINE";position:absolute;right:6px;top:-24px;font:700 .62rem system-ui;color:#fff;background:var(--pink);border:2px solid var(--ink);border-radius:8px;padding:1px 6px}
+#meter.hot{animation:hotm .25s linear infinite alternate;box-shadow:0 0 0 6px #ff6b9d88,0 5px 0 var(--ink)}
+@keyframes hotm{from{transform:translateX(-2px)}to{transform:translateX(2px)}}
+#mlab2{font-weight:700;font-size:.8rem;letter-spacing:.12em;background:var(--paper);border:3px solid var(--ink);border-radius:10px;padding:1px 10px}
+
+/* bottom dock: equal size */
+#dock{bottom:12px;gap:12px}
+#dock button,#dock select{width:172px;height:46px;margin:0;padding:0 10px;font-size:.95rem;font-weight:700;border:4px solid var(--ink);border-radius:16px;box-shadow:0 5px 0 var(--ink);display:flex;align-items:center;justify-content:center;text-align:center;text-align-last:center;background-color:var(--paper)}
+#dock select{background-image:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,0) 55%);cursor:pointer}
+#mbar{bottom:72px}
+@media (max-width:1100px){#rcol,#panel{width:300px}#mwrap{transform:scale(.85);transform-origin:left bottom}#dock button,#dock select{width:140px}}
+@media (prefers-reduced-motion:reduce){body,#sun,#balloon,#fill::after,#fx i,#meter.hot{animation:none}}
+#modeTag{transform:none;left:14px}
+#focusT{transform:translateX(-50%)}
+#cel{background:rgba(42,27,77,.4);-webkit-backdrop-filter:blur(16px) saturate(.9);backdrop-filter:blur(16px) saturate(.9)}
+#blurBg{position:fixed;inset:0;z-index:8;pointer-events:none;opacity:0;transition:opacity .4s;background:rgba(42,27,77,.3);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px)}
+#blurBg.on{opacity:1}
+/* ===== alignment pass: everything straight ===== */
+h1{transform:none}
+.sub{transform:none}
+button:hover,.card:hover{transform:translateY(-4px)}
+#msg span,#msg small{transform:none}
+@keyframes boing{from{transform:scale(0) rotate(-30deg)}to{transform:scale(1) rotate(0)}}
+#home .row button{width:300px;height:58px;display:flex;align-items:center;justify-content:center;padding:0 12px}
+#modeTag{left:12px}
+#mwrap{left:12px;bottom:12px}
+
+/* ---- Voice level ---- */
+#home{overflow-y:auto}
+#vlBox{width:min(980px,96vw);display:flex;flex-direction:column;gap:8px;align-items:center;padding:10px 14px}
+#vlBox>b{font-size:1.25rem}
+#vlRow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;width:100%}
+.vlc{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 6px;font-size:1rem;border-radius:18px;position:relative;line-height:1.1}
+.vlc .n{font-family:"Luckiest Guy",sans-serif;font-weight:400;font-size:2rem;line-height:1}
+.vlc .e{font-size:1.6rem}.vlc small{font-weight:500;font-size:.8rem}
+.vlc.sel{outline:6px solid var(--ink);outline-offset:2px;transform:translateY(-4px) scale(1.05);animation:vlpop .35s}
+.vlc.sel::after{content:"✔ SELECTED";position:absolute;top:-14px;right:-6px;background:var(--ink);color:#fff;border-radius:10px;font-size:.7rem;padding:2px 7px}
+@keyframes vlpop{50%{transform:translateY(-8px) scale(1.12)}}
+#vlNow{font-size:1.15rem;min-height:1.4em}#vlBox small.note{opacity:.75}
+#vlTag{position:fixed;top:116px;left:14px;z-index:5;width:250px;display:flex;flex-direction:column;gap:6px;padding:8px 10px;font-size:.95rem;transition:background .4s}
+#vlTag .mini{display:flex;gap:6px}
+#vlTag .mini button{flex:1;padding:2px 0;font-size:1.05rem;border-width:3px;border-radius:12px;box-shadow:0 3px 0 var(--ink)}
+#vlTag .mini button[aria-pressed=true]{outline:4px solid var(--ink);outline-offset:1px}
+#vlTag.s1{background:#fff0c2}#vlTag.s2{background:#ffd9b0}
+#vlM{font-size:.85rem;min-height:1.1em}
+#vlAnn{position:fixed;left:50%;top:16vh;transform:translateX(-50%);z-index:8;display:none;align-items:center;gap:14px;background:var(--paper);border:5px solid var(--ink);border-radius:26px;box-shadow:0 8px 0 var(--ink);padding:14px 26px;pointer-events:none;font-family:"Luckiest Guy",sans-serif;font-size:clamp(1.4rem,4vw,2.6rem);text-align:center}
+#vlAnn.on{display:flex;animation:vlann 2.8s ease both}#vlAnn .ae{font-size:1.4em}
+@keyframes vlann{0%{opacity:0;transform:translate(-50%,-30px) scale(.8)}12%,80%{opacity:1;transform:translate(-50%,0) scale(1)}100%{opacity:0;transform:translate(-50%,-10px) scale(.95)}}
+@media (max-width:700px){#vlRow{grid-template-columns:repeat(2,1fr)}#vlTag{top:104px;width:210px}}
+@media (prefers-reduced-motion:reduce){.vlc.sel,#vlAnn.on{animation:none}#vlAnn.on{opacity:1}}
+#vlAnn{display:none!important}
+#meter{height:clamp(110px,calc(100vh - 510px),54vh)!important}
+@media (max-height:720px){#vlM{display:none}#meter{height:clamp(90px,calc(100vh - 430px),54vh)!important}}
+
+/* home: compact voice level picker */
+#vlBox{width:min(700px,94vw);gap:6px;padding:8px 14px}
+#vlBox>b{font-size:1.05rem}
+#vlRow{gap:8px}
+.vlc{display:grid;grid-template-columns:auto auto;justify-content:center;align-items:center;column-gap:8px;row-gap:0;padding:6px 6px 7px;border-radius:14px;font-size:.9rem;box-shadow:0 4px 0 var(--ink)}
+.vlc .e{font-size:1.25rem;grid-column:1}.vlc .n{font-size:1.5rem;grid-column:2}
+.vlc b{grid-column:1/3;font-size:.9rem}.vlc small{grid-column:1/3;font-size:.7rem;line-height:1.15}
+.vlc.sel{outline-width:4px;transform:translateY(-2px) scale(1.03)}
+.vlc.sel::after{font-size:.6rem;top:-11px;padding:1px 6px}
+#vlNow{font-size:.95rem;min-height:1.2em}#vlBox small.note{font-size:.72rem}
+/* game: one tidy left column = voice level on top, long noise meter below */
+#lcol{position:fixed;left:12px;top:122px;bottom:12px;width:236px;z-index:5;display:flex;flex-direction:column;gap:10px}
+#lcol #vlTag{position:static;width:100%;flex:none}
+#lcol #mwrap{position:static;transform:none!important;flex:1;min-height:0;width:100%;display:grid;grid-template-columns:88px 1fr;grid-template-rows:auto 1fr auto;column-gap:12px;row-gap:8px;align-items:start;justify-items:center}
+#lcol #meter{grid-column:1;grid-row:1/4;height:100%!important;min-height:0;width:88px;align-self:stretch;touch-action:none}
+#lcol #lvNum{grid-column:2;grid-row:1}
+#lcol #mlab2{grid-column:2;grid-row:3;align-self:end}
+#flag{cursor:ns-resize;touch-action:none}
+#flag::before{content:"";position:absolute;left:0;right:0;top:-20px;height:40px}
+#flag::after{content:"↕ POP LINE"!important}
+
+/* Quiet Garden */
+#gd{position:absolute;inset:0}
+#gsvg{width:100%;height:100%;overflow:visible}
+.gs{cursor:pointer}.gs:hover ellipse:first-of-type{filter:brightness(1.15)}
+.sw{transform-box:fill-box;transform-origin:50% 100%;animation:gsw 3.2s ease-in-out infinite}
+@keyframes gsw{50%{transform:rotate(3deg)}0%,100%{transform:rotate(-3deg)}}
+#ghud{position:absolute;top:52px;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:2px;padding:6px 14px;font-size:1rem;white-space:nowrap}
+#ghud .r{display:flex;gap:14px;justify-content:center;font-weight:700}#gmsg{font-size:.9rem;min-height:1.2em;max-width:62vw;overflow:hidden;text-overflow:ellipsis}
+#gbar{position:absolute;bottom:122px;left:50%;transform:translateX(-50%);display:flex;gap:8px;flex-wrap:nowrap}
+#gbar button{padding:6px 12px;font-size:.95rem;border-width:3px;box-shadow:0 4px 0 var(--ink)}
+#gbar button[aria-pressed=true]{outline:4px solid var(--ink);outline-offset:1px;background:var(--mint)}
+.gfly{position:absolute;font-size:2rem;display:none;animation:gfly 16s linear infinite}
+@keyframes gfly{0%{left:20%;top:30%}25%{left:45%;top:22%}50%{left:70%;top:34%}75%{left:45%;top:42%}100%{left:20%;top:30%}}
+@media (prefers-reduced-motion:reduce){.sw,.gfly{animation:none}}
+
+/* compact layout + minimise */
+#status{display:none}#status.show{display:block}
+#modeTag{top:12px!important;left:172px!important;height:48px;display:flex;align-items:center;padding:0 14px}
+#lcol{top:68px;bottom:8px;width:200px}
+#lcol #vlTag{position:relative;padding-right:10px}
+#vlT{padding-right:36px;font-size:.9rem}
+#vlTag.min .mini,#vlTag.min #vlS,#vlTag.min #vlM{display:none}
+#vlMin,#joinMin{padding:0 8px;font-size:.8rem;line-height:1.5;border-width:3px;border-radius:10px;box-shadow:0 3px 0 var(--ink)}
+#vlMin{position:absolute;top:5px;right:6px}
+#rcol{width:236px;gap:8px}
+#tools{gap:6px}#tools button{height:38px;font-size:.78rem;padding:0 4px}
+#join{flex-wrap:wrap;gap:6px 10px;padding:5px 8px}#joinMin{flex:0 0 100%}
+#join.min #qrBox,#join.min #ticket{display:none!important}
+#qrImg svg{width:64px;height:64px}#code{font-size:1.6rem}
+#stats{gap:6px;font-size:.74rem}#stats .sticker{padding:3px 6px;border-radius:12px;box-shadow:0 3px 0 var(--ink)}#stats b{font-size:1.15rem}#ach{font-size:.9rem!important}
+
+/* fixed, non-overlapping left column: voice box on top, fixed-length meter at the bottom */
+#lcol{top:68px;bottom:8px;width:200px}
+#lcol #vlTag{flex:none}
+#vlT{min-height:2.4em}
+#vlM{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-height:1.2em}
+#lcol #mwrap{display:flex;flex-direction:column;align-items:center;flex:none;margin-top:auto;align-self:flex-start;width:108px;gap:6px;min-height:0}
+#lcol #meter{height:calc(100vh - 372px)!important;min-height:140px;width:88px;align-self:center}
+#lcol #lvNum{width:62px;height:62px;font-size:1.7rem}
+#lcol #mlab2{align-self:center}
+/* garden stats bar: below the mode label, between the side columns */
+#ghud{top:68px;left:222px;right:260px;transform:none}
+#ghud .r{flex-wrap:wrap;gap:4px 14px}#gmsg{max-width:100%;white-space:normal}
+
+/* final left column: voice box right under Back, noise meter fills the rest down to the NOISE label */
+#lcol{top:72px;bottom:8px;width:200px;gap:10px}
+#lcol #vlTag{position:relative;top:0!important;left:0!important;width:100%;flex:none}
+#lcol #mwrap{flex:1 1 0;min-height:0;margin-top:0;align-self:flex-start;width:108px;display:flex;flex-direction:column;align-items:center;gap:6px}
+#lcol #meter{flex:1 1 0;height:auto!important;min-height:80px;width:88px}
+#lcol #lvNum{flex:none;width:62px;height:62px;font-size:1.7rem}
+#lcol #mlab2{flex:none}
+/* mode name sits right next to Back with a small, even gap */
+#bar #modeTag{position:static!important;transform:none;margin:0;height:48px;display:flex;align-items:center;padding:0 14px;white-space:nowrap}
+</style>
+</head>
+<body>
+<div id="sun"></div>
+<div class="cloud" style="top:12vh;animation-duration:70s"></div>
+<div class="cloud" style="top:30vh;animation-duration:110s;animation-delay:-50s;transform:scale(.7)"></div>
+<svg id="hills" viewBox="0 0 1000 300" preserveAspectRatio="none" aria-hidden="true">
+  <path d="M0 120C150 40 300 60 450 120S800 60 1000 110V300H0Z" fill="#5fd08f" stroke="#2a1b4d" stroke-width="5"/>
+  <path d="M0 190C200 120 380 150 560 195S860 140 1000 175V300H0Z" fill="#3dbb7e" stroke="#2a1b4d" stroke-width="5"/>
+  <path d="M0 190C200 120 380 150 560 195S860 140 1000 175" fill="none" stroke="#fff" stroke-width="4" stroke-dasharray="14 12" transform="translate(0 16)"/>
+</svg>
+
+<section class="screen on" id="home">
+  <h1>Quiet Balloon</h1>
+  <p class="sub">Pick a game. Calm and focus earn class points and stars!</p>
+  <div class="row"><button class="white" id="bPhone">📱 Use my phone as the mic</button><button class="white" id="bFullH">⛶ Fullscreen</button></div>
+  <div id="vlBox" class="sticker"><b>🔊 What voice level do we need?</b><div id="vlRow"></div><div id="vlNow"></div><small class="note">Measures overall room loudness, not who is talking or what is said.</small></div>
+  <div id="cards"></div>
+</section>
+
+<section class="screen" id="display">
+  <div id="scene"></div>
+  <div id="bar">
+    <button class="white" id="bBackD">← Back</button><div class="sticker" id="status">Starting...</div>
+  </div>
+  <div id="panel" class="sticker">
+    <div class="row" style="justify-content:space-between;flex-wrap:nowrap"><b style="font-size:1.4rem">Settings</b><button class="white" id="bX" aria-label="Close settings" style="padding:4px 14px">✕</button></div>
+    <label>Pop level: <b id="vLimit">70</b><input id="limit" type="range" min="20" max="95" value="70"></label>
+    <label>Mic sensitivity: <b id="vSens">5</b><input id="sens" type="range" min="1" max="10" value="5"></label>
+    <label>Response speed: <b id="vResp">5</b><input id="resp" type="range" min="1" max="10" value="5"></label>
+    <label>Background noise (set by Calibrate): <b id="vBase">0</b><input id="base" type="range" min="0" max="40" value="0"></label>
+    <label>Too loud for: <b id="vHold">1.0</b> sec<input id="hold" type="range" min="0" max="30" value="10"></label>
+    <details><summary><b>Celebrations &amp; challenges</b></summary><div id="celBox"></div></details>
+    <button class="white" id="bSaveCustom">Save these settings as my preset</button>
+    <details><summary><b>Rewards, messages &amp; lives</b></summary><div id="rewBox"></div></details>
+    <label style="display:none">Focus music:
+      <select id="track"><option value="piano">Gentle piano</option><option value="box">Music box</option><option value="ocean">Ocean calm</option><option value="forest">Forest chimes</option><option value="off">No music</option></select></label>
+    <label style="display:none">Music volume: <b id="vVol">50</b><input id="vol" type="range" min="0" max="100" value="50"></label>
+    <label>Focus session length:
+      <select id="fmin"><option value="5">5 minutes</option><option value="10" selected>10 minutes</option><option value="15">15 minutes</option><option value="25">25 minutes</option></select></label>
+    <button class="pink" id="bReset">New balloon</button>
+    <button class="mint" id="bSave">Save &amp; close</button>
+    <small>Test: hold the space bar or press and hold the balloon.</small>
+  </div>
+  <div id="focusT" class="sticker">Focus time left<b id="focusTime">0:00</b></div>
+  <div id="modeTag" class="sticker">🎈 Quiet Balloon</div>
+  <div id="vlTag" class="sticker"><b id="vlT"></b><div class="mini" id="vlB"></div><div id="vlS"></div><small id="vlM"></small></div>
+  <div id="vlAnn" aria-live="polite"></div>
+  <div id="dock"><select id="preset" aria-label="Classroom mode"><option value="std">Standard</option><option value="silent">Silent Reading</option><option value="indep">Independent Work</option><option value="teach">Teacher Explanation</option><option value="group">Group Discussion</option><option value="collab">Collaborative Learning</option><option value="celeb">Celebration</option><option value="vl0">Silent (L0)</option><option value="vl1">Whisper (L1)</option><option value="vl2">Group (L2)</option><option value="vl3">Presentation (L3)</option><option value="custom">My custom</option></select><button class="white" id="bPause">⏸ Pause</button><button class="white" id="bCal">🎤 Calibrate</button><button class="white" id="bFull">⛶ Fullscreen</button></div>
+  <div id="mbar" class="sticker"><div id="mfill"></div><span id="mlab"></span></div>
+  <div id="cd">5</div>
+  <div id="rcol">
+    <div id="tools">
+      <button class="white" id="bMute" aria-label="Mute sound">🔊</button><button class="pink" id="bFocus">Focus mode</button><button class="white" id="bSet" aria-label="Settings">⚙️ Settings</button>
+      <button class="mint" id="bMic">Use this mic</button>
+    </div>
+    <div id="join"><div id="qrBox"><div id="qrImg"></div></div><div id="ticket"><small>📱 Phone code</small><span id="code">----</span></div></div>
+  <div id="stats">
+    <div class="sticker">⏱️ Quiet time<b id="streak">0:00</b></div>
+    <div class="sticker">🏆 Best<b id="best">0:00</b></div>
+    <div class="sticker">💥 Pops<b id="pops">0</b></div>
+    <div class="sticker">⭐ Class points<b id="pts">0</b></div>
+    <div class="sticker wide">🌟 Stars<b id="ach" style="font-size:1.3rem"></b></div>
+  </div>
+  </div>
+  <div id="mwrap"><div id="lvNum">0</div><div id="meter"><div id="fill"></div><div id="flag"></div></div><div id="mlab2">🔊 NOISE</div></div>
+  <div id="bw">
+    <svg id="balloon" viewBox="0 0 200 300" aria-label="Balloon">
+      <path id="string" d="M100 212C84 232 116 248 100 268S92 290 100 298" fill="none" stroke="#2a1b4d" stroke-width="4" stroke-linecap="round"/>
+      <path id="knot" d="M100 202l-11 14h22Z" fill="#ff6b9d" stroke="#2a1b4d" stroke-width="5" stroke-linejoin="round"/>
+      <path id="body" d="M100 8C48 8 14 50 14 100c0 50 38 92 86 104 48-12 86-54 86-104C186 50 152 8 100 8Z" fill="#ff6b9d" stroke="#2a1b4d" stroke-width="6"/>
+      <ellipse cx="58" cy="58" rx="12" ry="22" fill="#fff" opacity=".5" transform="rotate(25 58 58)"/>
+      <circle cx="46" cy="124" r="10" fill="#ff3d7f" opacity=".45"/><circle cx="154" cy="124" r="10" fill="#ff3d7f" opacity=".45"/>
+      <circle cx="74" cy="92" r="15" fill="#fff" stroke="#2a1b4d" stroke-width="4"/><circle cx="126" cy="92" r="15" fill="#fff" stroke="#2a1b4d" stroke-width="4"/>
+      <circle id="pl" cx="74" cy="92" r="6" fill="#2a1b4d"/><circle id="pr" cx="126" cy="92" r="6" fill="#2a1b4d"/>
+      <path id="mouth" d="M80 122Q100 142 120 122" fill="none" stroke="#2a1b4d" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path id="sweat" d="M160 60q10 16 0 22q-10-6 0-22Z" fill="#8fe3ff" stroke="#2a1b4d" stroke-width="3" style="display:none"/>
+    </svg>
+  </div>
+  <div id="msg"><div><span>POP!</span><small>That was too noisy. Try again, quietly!</small><button class="mint" id="bAgain" style="pointer-events:auto;margin-top:18px">Play again</button></div></div>
+  <div id="cel"><div id="celBig">🎉</div><div id="celMsg"></div><div class="row"><button class="mint" id="celOk">Continue</button><button class="pink" id="celNew">New challenge</button></div></div>
+  <div id="blurBg"></div>
+  <div id="badge"><svg viewBox="0 0 100 100" aria-hidden="true"><polygon id="bStar" points="50,5 61,38 96,38 68,58 79,92 50,72 21,92 32,58 4,38 39,38" fill="#ffd23f" stroke="#2a1b4d" stroke-width="5" stroke-linejoin="round"/></svg><div class="sticker"><div id="bName"></div><div id="bMsg"></div><b id="bPts"></b></div></div>
+  <div id="calib"><div class="sticker"><div id="calTxt">Everyone stay silent for 5 seconds so the balloon can learn how quiet your room is.</div><div id="calN">🤫</div><div class="row"><button class="mint" id="calStart">Start (5 sec)</button><button class="white" id="calSkip">Skip</button></div></div></div>
+  <div id="over"><div class="sticker"><h2 style="margin:0;font-family:'Luckiest Guy',sans-serif;font-weight:400;font-size:2.6rem">Game over</h2><div id="overTxt"></div><div class="row"><button class="pink" id="bRestart">Play again</button><button class="white" id="bOverHome">Home</button></div></div></div>
+</section>
+
+<section class="screen" id="phone">
+  <button class="white" id="bBackP" style="position:fixed;top:12px;left:12px">← Back</button>
+  <h1 style="font-size:clamp(2.4rem,9vw,4rem)">Be the mic!</h1>
+  <p class="sub">Type the 4-digit code from the big screen. Then keep this phone near the class.<br>🔒 This phone sends only a loudness number, never sound.</p>
+  <div class="row"><input id="pcode" inputmode="numeric" maxlength="4" placeholder="0000" aria-label="4-digit code"><button class="mint" id="bConnect">Connect</button></div>
+  <div id="mic">🎤<span id="ring"></span></div>
+  <p class="sticker" id="pstatus">Not connected yet</p>
+</section>
+
+<script>
+const $ = id => document.getElementById(id);
+const show = id => document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id));
+const PREFIX = 'quietballoon-';
+const COLORS = ['#ff6b9d','#ffb13d','#5bc8ff','#b58bff','#6fe0a0'];
+let sens = 5, limit = 70, holdMs = 1000;
+let level = 0, testLevel = 0, smooth = 0, popped = false, overSince = 0, lastRemote = 0, remoteOn = false;
+let curCode = '', popTimer = null, micStop = null, displayPeer = null, phonePeer = null;
+let colorIdx = 0, pops = 0, ticking = false;
+
+let micInfo = {max:0, state:'', label:'', deviceId:''};
+async function startMic(onLevel, deviceId){
+  if(micStop) return;   // already listening
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){ const e = new Error('no-mediadevices'); e.name = 'NoMediaApi'; throw e; }
+  const dev = deviceId ? {deviceId:{exact:deviceId}} : {};
+  let stream;
+  try{ stream = await navigator.mediaDevices.getUserMedia({audio:Object.assign({echoCancellation:false,noiseSuppression:false,autoGainControl:false}, dev)}); }
+  catch(err){ if(err && (err.name === 'OverconstrainedError' || err.name === 'NotReadableError')) stream = await navigator.mediaDevices.getUserMedia({audio: deviceId ? dev : true}); else throw err; }
+  const tr = stream.getAudioTracks()[0];
+  micInfo = {max:0, state:'', label:(tr && tr.label) || '', deviceId:(tr && tr.getSettings && tr.getSettings().deviceId) || deviceId || ''};
+  const ctx = new (window.AudioContext||window.webkitAudioContext)();
+  try{ ctx.resume(); }catch(e){}   // do not await: it can stay pending and would stop the mic from ever starting
+  const an = ctx.createAnalyser(); an.fftSize = 1024;
+  ctx.createMediaStreamSource(stream).connect(an);
+  const buf = new Float32Array(an.fftSize);
+  const iv = setInterval(() => {
+    if(ctx.state === 'suspended') ctx.resume().catch(() => {});   // browsers may pause audio; wake it up
+    an.getFloatTimeDomainData(buf);
+    let s = 0; for (const v of buf) s += v*v;
+    // decibel scale: laptop mics are quiet, so a linear scale never reached the balloon limit
+    const rms = Math.sqrt(s/buf.length), db = 20*Math.log10(Math.max(rms,1e-5));
+    micInfo.max = Math.max(micInfo.max, rms); micInfo.state = ctx.state;
+    const top = -12 - (sens-5)*3, lo = -60;     // higher sensitivity = lower "top"
+    onLevel(Math.max(0, Math.min(100, (db - lo)/(top - lo)*100)));
+  }, 70);
+  stream.getTracks().forEach(t => t.addEventListener('ended', () => { if(micStop){ micStop(); micStop = null; $('status').textContent = 'Mic disconnected. Tap "Enable mic".'; $('bMic').style.display = ''; $('bMic').textContent = '🎤 Enable mic'; } }));
+  micStop = () => { clearInterval(iv); stream.getTracks().forEach(t => t.stop()); try{ ctx.close(); }catch(e){} };
+  try{ navigator.wakeLock && navigator.wakeLock.request('screen').catch(()=>{}); }catch(e){}
+}
+
+// ---------- Sound ----------
+let AC = null, master, musicG, sfxG, musicDest, noiseBuf = null, curStop = null, previewT = null;
+let muted = false, vol = 50, track = 'piano', focusMin = 10, focusOn = false, focusEnd = 0, lastWarn = 0, lastMile = 0;
+function ensureAC(){
+  if(!AC){
+    try{
+      AC = new (window.AudioContext||window.webkitAudioContext)();
+      master = AC.createGain(); master.gain.value = muted ? 0 : 1; master.connect(AC.destination);
+      musicG = AC.createGain(); musicG.gain.value = vol/100*0.8; musicG.connect(master);
+      sfxG = AC.createGain(); sfxG.gain.value = 0.9; sfxG.connect(master);
+    }catch(e){ AC = null; return null; }
+  }
+  if(AC.state === 'suspended') AC.resume();
+  return AC;
+}
+const mtof = m => 440*Math.pow(2,(m-69)/12);
+function tone(f,t,dur,type,v,dest,attack){
+  const o = AC.createOscillator(), g = AC.createGain(); o.type = type; o.frequency.value = f;
+  g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(v,t+(attack||.01)); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(g).connect(dest||sfxG); o.start(t); o.stop(t+dur+.05);
+}
+const mn = (m,t,dur,type,v,att) => tone(mtof(m),t,dur,type,v,musicDest,att);
+function noiseSrc(){
+  if(!noiseBuf){ noiseBuf = AC.createBuffer(1,AC.sampleRate*2,AC.sampleRate); const d = noiseBuf.getChannelData(0); for(let i=0;i<d.length;i++) d[i] = Math.random()*2-1; }
+  const s = AC.createBufferSource(); s.buffer = noiseBuf; s.loop = true; return s;
+}
+const PENT = [0,2,4,7,9], pick = a => a[Math.floor(Math.random()*a.length)];
+const TRACKS = {
+  piano:{ dur:.45, fn(step,t){
+    const bar = Math.floor(step/8)%4, root = [48,45,41,43][bar], third = bar === 1 ? 3 : 4;
+    if(step%8 === 0) mn(root-12,t,4,'sine',.3);
+    if(Math.random() > .2) mn(root+12+[0,7,12,12+third,19,12+third,12,7][step%8],t,2.4,'triangle',.16);
+  }},
+  box:{ dur:.6, fn(step,t){
+    if(Math.random() < .3) return;
+    const m = 72 + pick(PENT) + (Math.random() < .3 ? 12 : 0);
+    mn(m,t,1.6,'sine',.16); mn(m+12,t,.6,'sine',.05);
+  }},
+  ocean:{ dur:8, init(d){
+    const s = noiseSrc(), f = AC.createBiquadFilter(), g = AC.createGain(), l = AC.createOscillator(), lg = AC.createGain();
+    f.type = 'lowpass'; f.frequency.value = 600; g.gain.value = .07; l.frequency.value = .1; lg.gain.value = .06;
+    l.connect(lg).connect(g.gain); s.connect(f).connect(g).connect(d); s.start(); l.start();
+    return () => { try{ s.stop(); l.stop(); }catch(e){} };
+  }, fn(step,t){
+    [[48,55,64],[45,52,60],[41,48,57],[43,50,59]][step%4].forEach(m => { mn(m,t,9.5,'sine',.1,3); mn(m+.06,t,9.5,'sine',.07,3.5); });
+  }},
+  forest:{ dur:.5, init(d){
+    const s = noiseSrc(), f = AC.createBiquadFilter(), g = AC.createGain(), o = AC.createOscillator(), og = AC.createGain();
+    f.type = 'lowpass'; f.frequency.value = 900; g.gain.value = .025; o.frequency.value = 110; og.gain.value = .04;
+    s.connect(f).connect(g).connect(d); o.connect(og).connect(d); s.start(); o.start();
+    return () => { try{ s.stop(); o.stop(); }catch(e){} };
+  }, fn(step,t){
+    if(Math.random() < .22){ const m = 72 + pick(PENT) + (Math.random() < .5 ? 12 : 0); mn(m,t,3,'triangle',.14); }
+  }}
+};
+function stopMusic(){ if(curStop){ curStop(); curStop = null; } }
+function startMusic(){
+  stopMusic();
+  const T = TRACKS[track]; if(!T || !ensureAC()) return;
+  const sess = AC.createGain(); sess.connect(musicG); musicDest = sess;
+  const stopInit = T.init ? T.init(sess) : null;
+  let step = 0, next = AC.currentTime + .1;
+  const iv = setInterval(() => { while(next < AC.currentTime + .4){ T.fn(step++,next); next += T.dur; } }, 100);
+  curStop = () => {
+    clearInterval(iv); sess.gain.setTargetAtTime(0,AC.currentTime,.25);
+    setTimeout(() => { try{ sess.disconnect(); }catch(e){} if(stopInit) stopInit(); }, 1500);
+  };
+}
+const sfx = {
+  click(){ if(ensureAC()) tone(660,AC.currentTime,.09,'triangle',.25); },
+  warn(p){ if(AC) tone(300+p*500,AC.currentTime,.07,'square',.06); },
+  chime(){ if(ensureAC()){ const t = AC.currentTime; [76,80,83,88].forEach((m,i) => tone(mtof(m),t+i*.12,1.3,'sine',.22)); } },
+  happy(){ if(ensureAC()){ const t = AC.currentTime; [72,76,79].forEach((m,i) => tone(mtof(m),t+i*.1,.5,'triangle',.22)); } },
+  pop(){
+    if(!ensureAC()) return; const t = AC.currentTime;
+    const s = noiseSrc(), g = AC.createGain(); s.loop = false; g.gain.setValueAtTime(.9,t); g.gain.exponentialRampToValueAtTime(.001,t+.25);
+    s.connect(g).connect(sfxG); s.start(t); s.stop(t+.3);
+    const o = AC.createOscillator(), og = AC.createGain(); o.frequency.setValueAtTime(180,t); o.frequency.exponentialRampToValueAtTime(40,t+.2);
+    og.gain.setValueAtTime(.8,t); og.gain.exponentialRampToValueAtTime(.001,t+.25); o.connect(og).connect(sfxG); o.start(t); o.stop(t+.3);
+    [64,60,57].forEach((m,i) => tone(mtof(m),t+.35+i*.18,.3,'triangle',.2));
+  }
+};
+function applyMute(){
+  $('bMute').textContent = muted ? '🔇' : '🔊'; $('bMute').setAttribute('aria-label', muted ? 'Unmute sound' : 'Mute sound');
+  if(master) master.gain.setTargetAtTime(muted ? 0 : 1, AC.currentTime, .05);
+}
+function startFocus(){
+  ensureAC(); focusOn = true; focusEnd = performance.now() + focusMin*60000;
+  $('bFocus').textContent = 'End focus'; $('focusT').style.display = 'block';
+  $('focusTime').textContent = fmt(focusMin*60000); $('status').textContent = 'Focus mode on. Quiet minds, calm room.';
+  startMusic();
+}
+function stopFocus(done){
+  const was = focusOn; focusOn = false;
+  $('bFocus').textContent = 'Focus mode'; $('focusT').style.display = 'none'; stopMusic();
+  if(done){ sfx.chime(); $('status').textContent = 'Focus session complete! Great job, class!'; }
+  else if(was) $('status').textContent = 'Focus mode ended';
+}
+
+const fmt = ms => { const s = Math.floor(ms/1000); return Math.floor(s/60) + ':' + String(s%60).padStart(2,'0'); };
+function hue(p){ return `hsl(${Math.round(130 - Math.min(1,p)*130)} 85% 55%)`; }
+
+function face(p){
+  const m = $('mouth'), pl = $('pl'), pr = $('pr');
+  let d, r;
+  if(p < .35){ d = 'M80 122Q100 142 120 122'; r = 6; }
+  else if(p < .65){ d = 'M82 128L118 128'; r = 5; }
+  else if(p < .85){ d = 'M90 124Q100 146 110 124Q100 114 90 124Z'; r = 3.5; }
+  else { d = 'M76 132Q84 118 92 132T108 132T124 132'; r = 2.5; }
+  m.setAttribute('d', d); pl.setAttribute('r', r); pr.setAttribute('r', r);
+  $('sweat').style.display = p > .65 ? 'block' : 'none';
+}
+
+// ---------- Game engine: points, streaks, calibration, lives ----------
+let gameMode = 'balloon', lives = 3, points = 0, roundPts = 0, bestMs = 0, streakMs = 0, minsPaid = 0, recMs = 0;
+let quiet = false, paused = false, isOver = false, calibrating = false, calibAsked = false, wasOn = false;
+let calEnd = 0, calSamples = [], lastT = 0, lvBuf = [], rawMed = 0, baseline = 0, atk = .225, badgeT = null;
+const milesGot = new Set();
+const REW = {pm:10, b3:20, b5:30, b10:50};
+const MSG = ['Nice! One calm minute!','THREE MINUTES OF CALM! SILVER STAR!','FIVE MINUTES OF AMAZING FOCUS! GOLDEN STREAK!','YOU ARE OFFICIALLY FOCUS CHAMPIONS!'];
+const LV = {start:3, max:3, rec:2};
+const MILES = [{m:1,k:'bronze',c:'#cd7f32',n:'Bronze Star',b:null},{m:3,k:'silver',c:'#c0c8d4',n:'Silver Star',b:'b3'},{m:5,k:'gold',c:'#ffd23f',n:'Golden Star',b:'b5'},{m:10,k:'diamond',c:'#7fe8ff',n:'Diamond Star',b:'b10'}];
+const ACH = {bronze:0,silver:0,gold:0,diamond:0};
+try{ Object.assign(ACH, JSON.parse(localStorage.getItem('quietBalloonStars') || '{}')); }catch(e){}
+const saveAch = () => { try{ localStorage.setItem('quietBalloonStars', JSON.stringify(ACH)); }catch(e){} };
+
+// Median of the last 5 readings rejects single claps; baseline removes room noise.
+function pushLevel(v){ lvBuf.push(v); if(lvBuf.length > 5) lvBuf.shift(); const a = [...lvBuf].sort((x,y) => x-y); rawMed = a[a.length>>1]; level = Math.max(0, rawMed - baseline); }
+function clearLevel(){ lvBuf = []; rawMed = 0; level = 0; }
+function addPts(n){ if(!n) return; points += n; roundPts += n; $('pts').textContent = points; }
+function renderAch(){ $('ach').innerHTML = MILES.map(M => `<span style="color:${M.c};-webkit-text-stroke:1px #2a1b4d">★${ACH[M.k]}</span>`).join(' '); }
+function breakStreak(){ targetDone = false; streakMs = 0; minsPaid = 0; recMs = 0; quiet = false; milesGot.clear(); }
+function updateQuiet(p){ if(quiet && p > .6){ quiet = false; breakStreak(); } else if(!quiet && p < .45) quiet = true; }
+function showStar(M,i,bonus,msg){
+  const b = $('badge'); $('bStar').setAttribute('fill',M.c); $('bName').textContent = M.n; $('bMsg').textContent = msg || MSG[i] || '';
+  $('bPts').textContent = bonus ? '+' + bonus + ' bonus points' : '';
+  b.classList.remove('on'); void b.offsetWidth; b.classList.add('on'); $('blurBg').classList.add('on'); sfx.chime();
+  clearTimeout(badgeT); badgeT = setTimeout(() => { b.classList.remove('on'); $('blurBg').classList.remove('on'); }, 4500);
+}
+function earn(dt){
+  if(nopop) return;      // Celebration mode: no noise rules
+  if(!quiet || paused || isOver || calibrating || !(micStop || remoteOn)) return;   // only valid quiet time counts
+  streakMs += dt; if(streakMs > bestMs) bestMs = streakMs;
+  const mins = Math.floor(streakMs/60000);
+  while(minsPaid < mins){ minsPaid++; addPts(Math.round(REW.pm*rw)); }
+  MILES.forEach((M,i) => {
+    if(streakMs >= M.m*60000 && !milesGot.has(M.k)){ milesGot.add(M.k); ACH[M.k]++; saveAch(); const bonus = M.b ? REW[M.b] : 0; addPts(bonus); showStar(M,i,bonus); renderAch(); }
+  });
+  if(CEL.target && !targetDone && streakMs >= CEL.target*60000){ targetDone = true; addPts(25); celebrate(); }
+  if(gameMode === 'lives' && lives < LV.max){ recMs += dt; if(recMs >= LV.rec*60000){ recMs = 0; gainLife(); } }
+}
+// calibration
+function calibUI(stage,txt){ $('calib').style.display = stage ? 'flex' : 'none'; $('calStart').style.display = $('calSkip').style.display = stage === 'ask' ? '' : 'none'; if(txt) $('calTxt').textContent = txt; }
+function offerCalib(){ if(!(micStop || remoteOn)){ $('status').textContent = 'Connect a microphone first.'; return; } $('calN').textContent = '🤫'; calibUI('ask','Everyone stay silent for 5 seconds so the balloon can learn how quiet your room is.'); }
+function finishCalib(){
+  calibrating = false; const a = calSamples.sort((x,y) => x-y), k = a.slice(0, Math.max(1, Math.floor(a.length*.9)));
+  baseline = Math.min(40, Math.round(k.reduce((x,y) => x+y, 0)/k.length*1.15 + 1));
+  $('base').value = baseline; $('vBase').textContent = baseline; $('calN').textContent = '✅'; calibUI('done','Room noise measured. Ready to play!');
+  setTimeout(() => calibUI(null), 1600);
+}
+// ---------- Presets, celebrations, extra game modes ----------
+const PRESETS = {silent:{n:'Silent Reading',limit:35,hold:6,resp:6,rw:1.5},indep:{n:'Independent Work',limit:50,hold:8,resp:5,rw:1.25},teach:{n:'Teacher Explanation',limit:35,hold:6,resp:6,rw:1.5},group:{n:'Group Discussion',limit:70,hold:15,resp:4,rw:1},collab:{n:'Collaborative Learning',limit:85,hold:25,resp:3,rw:1},celeb:{n:'Celebration',limit:95,hold:30,resp:5,rw:0,nopop:1}};
+let presetKey = 'std', nopop = false, rw = 1, CUSTOM = null, targetDone = false, lastCel = -1, celT = null;
+const getPreset = () => presetKey === 'custom' ? CUSTOM : PRESETS[presetKey];
+function applyPreset(k){
+  presetKey = k; const P = getPreset();
+  if(!P){ nopop = false; rw = 1; }
+  else { [['limit',P.limit],['hold',P.hold],['resp',P.resp]].forEach(([id,v]) => { $(id).value = v; $(id).dispatchEvent(new Event('input')); }); nopop = !!P.nopop; rw = P.rw == null ? 1 : P.rw; }
+  renderTag(); $('status').textContent = 'Mode: ' + (P ? P.n : 'Standard');
+}
+const MC = {sleep:2, fuel:30, drain:.5};
+const CEL = {on:true, sound:true, target:0, dur:6, en:Array(10).fill(true)};
+const CELS = [
+ {n:'Confetti Explosion',big:'🎉',m:'FANTASTIC FOCUS!',e:['🎊','🎉','✨','🟡','🔴'],mode:'burst',c:60},
+ {n:'Fireworks Show',big:'🎆',m:'FIREWORKS FOR A CALM CLASS!',e:['🎆','🎇','✨'],mode:'pop',c:26},
+ {n:'Rainbow Celebration',big:'🌈',m:'A RAINBOW OF CALM!',e:['🌈','☁️','✨'],mode:'fall',c:16},
+ {n:'Balloon Parade',big:'🎈',m:'BALLOON PARADE!',e:['🎈'],mode:'rise',c:30},
+ {n:'Golden Trophy Reveal',big:'🏆',m:'GOLDEN TROPHY UNLOCKED!',e:['⭐','✨'],mode:'burst',c:30},
+ {n:'Falling Stars',big:'🌟',m:'YOU ARE SUPERSTARS!',e:['⭐','🌟','✨'],mode:'fall',c:40},
+ {n:'Stadium Victory',big:'⚽',m:'WHAT A PERFORMANCE!',e:['⚽','📣','🥅','🎉'],mode:'burst',c:40},
+ {n:'Magical Sparkles',big:'🪄',m:'PURE MAGIC!',e:['✨','💫','🌟'],mode:'pop',c:50},
+ {n:'Rocket Celebration',big:'🚀',m:'READY FOR LIFT-OFF!',e:['🚀','🔥','⭐'],mode:'rise',c:18},
+ {n:'Grand Champion Screen',big:'👑',m:'CHAMPIONS OF FOCUS!',e:['🏅','🎖️','👑','🎉'],mode:'burst',c:40}];
+function pickCel(){
+  const ok = CELS.map((c,i) => i).filter(i => CEL.en[i]); if(!ok.length) return -1;
+  const pool = ok.length > 1 ? ok.filter(i => i !== lastCel) : ok;
+  return lastCel = pool[Math.floor(Math.random()*pool.length)];
+}
+function spawn(e,mode,delay){
+  const d = document.createElement('div'), W = innerWidth, H = innerHeight, R = Math.random; d.className = 'cp'; d.textContent = e; d.style.opacity = 0; let kf;
+  if(mode === 'burst'){ const a = R()*6.28, r = 200 + R()*Math.max(W,H)*.5; d.style.left = W/2 + 'px'; d.style.top = H/2 + 'px'; kf = [{transform:'translate(0,0) scale(.4)',opacity:1},{transform:`translate(${Math.cos(a)*r}px,${Math.sin(a)*r}px) scale(1.4) rotate(${R()*360}deg)`,opacity:0}]; }
+  else if(mode === 'fall'){ d.style.left = R()*W + 'px'; d.style.top = '-60px'; kf = [{transform:'translateY(0)',opacity:1},{transform:`translateY(${H+100}px) rotate(${R()*400}deg)`,opacity:1}]; }
+  else if(mode === 'rise'){ d.style.left = R()*W + 'px'; d.style.top = H + 'px'; kf = [{transform:'translateY(0)',opacity:1},{transform:`translateY(${-H-120}px) rotate(${R()*60-30}deg)`,opacity:1}]; }
+  else { d.style.left = R()*W + 'px'; d.style.top = R()*H + 'px'; kf = [{transform:'scale(0)',opacity:1},{transform:'scale(1.8)',opacity:1},{transform:'scale(0)',opacity:0}]; }
+  document.body.appendChild(d); d.animate(kf,{duration:1600 + R()*1600,delay,easing:'ease-out'}).onfinish = () => d.remove();
+}
+function celebrate(o = {}){
+  if(!CEL.on && !o.force) return; const i = pickCel(); if(i < 0) return; const c = CELS[i];
+  $('celBig').textContent = c.big; $('celMsg').textContent = o.msg || c.m; $('cel').style.display = 'flex';
+  for(let k=0;k<c.c;k++) spawn(c.e[k % c.e.length], c.mode, Math.random()*CEL.dur*700);
+  if(CEL.sound){ sfx.chime(); setTimeout(sfx.happy, 500); }
+  clearTimeout(celT); celT = setTimeout(() => $('cel').style.display = 'none', CEL.dur*1000);
+}
+$('celOk').onclick = () => { clearTimeout(celT); $('cel').style.display = 'none'; };
+$('celNew').onclick = () => { $('celOk').onclick(); breakStreak(); };
+
+const valid = () => !!(micStop || remoteOn) && !paused && !isOver && !calibrating;
+const starsHTML = n => Array.from({length:n}, () => `<span style="position:absolute;left:${Math.random()*96}%;top:${Math.random()*70}%;font-size:${1+Math.random()*2}vh">✦</span>`).join('');
+let sleepMs = 0, asleep = false, awarded = false, fuel = 0, rs = 'fuel', cdEnd = 0, launchT = 0, wxStage = -1;
+const setBar = (f,txt) => { $('mfill').style.width = Math.round(Math.max(0,Math.min(1,f))*100) + '%'; $('mlab').textContent = txt; };
+const MODES = {
+ cloud:{ html:() => `<div id="nightv">${starsHTML(30)}<span style="position:absolute;right:8%;top:8%;font-size:12vh">🌙</span></div>
+  <svg viewBox="0 0 400 300" style="position:absolute;left:50%;top:46%;width:min(80vw,70vh);transform:translate(-50%,-50%)" aria-label="Sleepy cloud"><g id="cg">
+  <path d="M90 220C40 220 30 150 80 140C80 90 140 70 180 100C210 60 280 70 290 120C340 120 360 190 310 220Z" fill="#fff" stroke="#2a1b4d" stroke-width="6" stroke-linejoin="round"/>
+  <ellipse id="eL" cx="150" cy="165" rx="14" ry="12" fill="#2a1b4d"/><ellipse id="eR" cx="250" cy="165" rx="14" ry="12" fill="#2a1b4d"/>
+  <circle cx="118" cy="188" r="12" fill="#ff9ec4" opacity=".6"/><circle cx="282" cy="188" r="12" fill="#ff9ec4" opacity=".6"/>
+  <path id="cm" d="M185 190Q200 202 215 190" fill="none" stroke="#2a1b4d" stroke-width="5" stroke-linecap="round"/>
+  <text id="zz" x="285" y="90" font-size="34" font-weight="700" fill="#2a1b4d" opacity="0">Z z z</text></g></svg>`,
+  tick(p,dt,t){
+    const g = MC.sleep*60000;
+    if(valid() && !nopop){ if(p < .45) sleepMs += dt; else if(p > .6) sleepMs = Math.max(0, sleepMs - dt*2); }
+    if(p > .85){ asleep = false; awarded = false; sleepMs = 0; }
+    if(sleepMs >= g && !asleep){ asleep = true; if(!awarded){ awarded = true; addPts(25); showStar(MILES[2],2,25,'THE CLOUD IS FAST ASLEEP! WELL DONE, CLASS!'); } }
+    const ry = asleep ? 1.5 : p < .35 ? 4 : p < .6 ? 12 : 21, mouth = asleep || p < .6 ? 'M185 190Q200 202 215 190' : p < .85 ? 'M190 192Q200 212 210 192Q200 186 190 192Z' : 'M180 205Q200 180 220 205';
+    $('eL').setAttribute('ry',ry); $('eR').setAttribute('ry',ry); $('cm').setAttribute('d',mouth); $('zz').setAttribute('opacity', asleep ? 1 : 0);
+    $('cg').setAttribute('transform',`translate(0 ${Math.sin(t/700)*8})`); $('scene').classList.toggle('night', asleep);
+    setBar(asleep ? 1 : sleepMs/g, asleep ? 'Zzz... the cloud is asleep!' : 'Sleep meter ' + Math.round(sleepMs/g*100) + '%');
+  }},
+ rocket:{ html:() => `<div id="nightv">${starsHTML(40)}</div>
+  <svg id="rk" viewBox="0 0 120 300" style="position:absolute;left:50%;bottom:12vh;width:min(22vh,30vw);margin-left:calc(min(22vh,30vw)/-2)" aria-label="Rocket">
+  <g id="flame" style="transform-box:fill-box;transform-origin:top;opacity:0"><path d="M45 215Q60 290 75 215Z" fill="#ffb13d" stroke="#2a1b4d" stroke-width="4"/></g>
+  <path d="M60 10C95 50 95 130 90 200H30C25 130 25 50 60 10Z" fill="#fff" stroke="#2a1b4d" stroke-width="5"/>
+  <circle cx="60" cy="95" r="18" fill="#7fd4ff" stroke="#2a1b4d" stroke-width="5"/>
+  <path d="M30 150L5 215 30 200ZM90 150L115 215 90 200Z" fill="#ff6b9d" stroke="#2a1b4d" stroke-width="5" stroke-linejoin="round"/><rect x="40" y="200" width="40" height="14" fill="#2a1b4d"/></svg>
+  <div style="position:absolute;left:0;right:0;bottom:0;height:13vh;background:#3dbb7e;border-top:5px solid #2a1b4d"></div>`,
+  init(){ $('scene').classList.add('night'); },
+  tick(p,dt,t){
+    const rk = $('rk'), fl = $('flame');
+    if(rs === 'fuel'){
+      if(valid() && !nopop){ if(quiet) fuel += dt*5/(MC.fuel*1000); else if(p > .6) fuel = Math.max(0, fuel - dt*MC.drain/1000); }
+      if(fuel >= 100){ fuel = 100; rs = 'count'; cdEnd = performance.now() + 5000; $('cd').style.display = 'block'; }
+      rk.style.transform = 'none'; fl.style.opacity = 0; setBar(fuel/100, 'Fuel ' + Math.round(fuel) + '%');
+    } else if(rs === 'count'){
+      const left = Math.ceil((cdEnd - performance.now())/1000); $('cd').textContent = Math.max(left,1);
+      rk.style.transform = `translateX(${Math.sin(t/25)*3}px)`; fl.style.opacity = 1; fl.style.transform = `scaleY(${.5 + Math.random()*.3})`; setBar(1,'Countdown...');
+      if(left <= 0){ rs = 'launch'; launchT = performance.now(); $('cd').style.display = 'none'; addPts(50); sfx.pop();
+        for(let k=0;k<12;k++){ const d = document.createElement('div'); d.className = 'cp'; d.textContent = '💨'; d.style.left = (45 + Math.random()*10) + 'vw'; d.style.top = '78vh'; document.body.appendChild(d); d.animate([{transform:'scale(.5)',opacity:1},{transform:`translate(${(Math.random()-.5)*300}px,${60 + Math.random()*120}px) scale(2.5)`,opacity:0}],{duration:1800,delay:k*120}).onfinish = () => d.remove(); } }
+    } else if(rs === 'launch'){
+      const e = (performance.now() - launchT)/1000; rk.style.transform = `translateY(${-e*e*160}px)`; fl.style.transform = `scaleY(${1.2 + Math.random()*.6})`;
+      if(e > 3){ rs = 'done'; celebrate({msg:'LIFT-OFF! MISSION COMPLETE!'}); setTimeout(() => { fuel = 0; rs = 'fuel'; }, 6500); }
+    }
+  }},
+ weather:{ html:() => `<div id="wx" class="s0"><div class="wsun">☀️</div><span class="wc" style="left:8%;top:16%">☁️</span><span class="wc" style="left:40%;top:6%">☁️</span><span class="wc" style="left:68%;top:18%">☁️</span>
+  <span class="bf" style="left:20%;top:52%">🦋</span><span class="bf" style="left:72%;top:60%">🦋</span><div id="rbow">🌈</div>
+  <div id="rain">${Array.from({length:40},() => `<i style="left:${Math.random()*100}%;animation-delay:-${(Math.random()*.9).toFixed(2)}s"></i>`).join('')}</div><div id="wg"></div></div>`,
+  tick(p){
+    const st = p < .35 ? 0 : p < .55 ? 1 : p < .8 ? 2 : 3, rb = st === 0 && streakMs >= 60000, w = $('wx'), key = st + (rb ? 10 : 0);
+    if(key !== wxStage){ wxStage = key; w.className = 's' + st + (rb ? ' rb' : ''); }
+    setBar(1 - Math.min(1,p), ['Sunny and calm ☀️','A few clouds ⛅','Cloudy and windy 🌥️','Rainy... shhh! 🌧️'][st] + (rb ? ' 🌈' : ''));
+  }}
+};
+function setupScene(){
+  const M = MODES[gameMode], sc = $('scene');
+  sleepMs = 0; asleep = false; awarded = false; fuel = 0; rs = 'fuel'; wxStage = -1; targetDone = false; $('cd').style.display = 'none'; $('cel').style.display = 'none';
+  sc.className = ''; sc.innerHTML = M ? M.html() : ''; sc.style.display = M ? 'block' : 'none';
+  $('bw').style.display = M ? 'none' : ''; $('mbar').style.display = M ? 'block' : 'none'; if(M && M.init) M.init();
+}
+function renderQR(code){
+  const box = $('qrBox'); if(typeof qrcode === 'undefined'){ box.style.display = 'none'; return; }
+  try{ const q = qrcode(0,'M'); q.addData(location.origin + location.pathname + '?pair=' + code); q.make(); $('qrImg').innerHTML = q.createSvgTag({cellSize:4,margin:2,scalable:true}); box.style.display = 'block'; }catch(e){ box.style.display = 'none'; }
+}
+
+function renderTag(){
+  const t = $('modeTag');
+  if(gameMode === 'lives'){ let h = '❤️ Balloon Lives '; for(let i=0;i<LV.max;i++) h += `<span class="lf${i < lives ? '' : ' lost'}" data-i="${i}">🎈</span>`; t.innerHTML = h; }
+  else t.textContent = {balloon:'🎈 Quiet Balloon',cloud:'☁️ Sleepy Cloud',rocket:'🚀 Rocket Launch',weather:'🌦️ Weather World',garden:'🌻 Quiet Garden'}[gameMode] || '🎈 Quiet Balloon';
+  const P = getPreset(); t.append(document.createTextNode(' · ' + (P ? P.n : 'Standard')));
+}
+const lifeEl = i => $('modeTag').querySelector(`[data-i="${i}"]`);
+function livesOnPop(){ lives = Math.max(0, lives-1); renderTag(); const e = lifeEl(lives); if(e) e.classList.add('hit'); if(lives <= 0){ clearTimeout(popTimer); setTimeout(showOver,1600); } }
+function gainLife(){ lives++; renderTag(); const e = lifeEl(lives-1); if(e) e.classList.add('gain'); sfx.happy(); $('status').textContent = 'Life recovered! Keep it up!'; }
+function showOver(){ isOver = true; $('msg').style.display = 'none'; $('overTxt').textContent = `Points this round: ${roundPts}. Longest quiet streak: ${fmt(bestMs)}. Pops: ${pops}.`; $('over').style.display = 'flex'; }
+function initSession(){
+  points = roundPts = pops = bestMs = streakMs = minsPaid = recMs = 0; quiet = paused = isOver = calibrating = calibAsked = wasOn = false;
+  lives = Math.min(LV.start, LV.max); clearLevel(); milesGot.clear();
+  $('pops').textContent = 0; $('pts').textContent = 0; $('streak').textContent = '0:00'; $('best').textContent = '0:00';
+  $('bPause').textContent = '⏸ Pause'; $('over').style.display = 'none'; calibUI(null); reset(); renderTag(); renderAch();
+}
+
+function tick(t){
+  const dt = Math.min(100, lastT ? t - lastT : 0); lastT = t;
+  const on = !!(micStop || remoteOn);
+  if(on && !wasOn && !calibAsked && $('display').classList.contains('on')){ calibAsked = true; offerCalib(); }
+  if(!on && calibrating){ calibrating = false; calibUI(null); }
+  wasOn = on;
+  if(calibrating){ calSamples.push(rawMed); const left = calEnd - performance.now(); $('calN').textContent = Math.max(0, Math.ceil(left/1000)); if(left <= 0) finishCalib(); }
+  const eff = Math.max(level, testLevel);
+  if(remoteOn && performance.now() - lastRemote > 2500){ clearLevel(); $('status').textContent = 'Phone signal lost. Switching to this device\'s mic.'; remoteOn = false; autoMic(); }
+  if(!popped){
+    smooth += (eff - smooth) * (eff > smooth ? atk : 0.04);
+    const p = smooth / limit;
+    const bob = Math.sin(t/600) * 6 * (1 - Math.min(p,1));
+    const shk = p > .8 ? Math.sin(t/30) * (p - .75) * 14 : 0;
+    $('bw').style.transform = `translateX(-50%) translateY(${bob}px) rotate(${shk}deg) scale(${0.5 + 0.75*Math.min(p,1.1)})`;
+    const c = p < .5 ? COLORS[colorIdx % COLORS.length] : hue(p);
+    $('body').setAttribute('fill', c); $('knot').setAttribute('fill', c);
+    $('fill').style.height = Math.min(100, smooth) + '%'; $('fill').style.background = hue(p); { const n = $('lvNum'); if(n) n.textContent = Math.round(Math.min(100, smooth)); $('meter').classList.toggle('hot', p > .75); }
+    face(p);
+    if(p > .75 && t - lastWarn > 650 - Math.min(p,1)*350){ lastWarn = t; sfx.warn(Math.min(p,1)); }
+    updateQuiet(p); earn(dt);
+    $('streak').textContent = fmt(streakMs); $('best').textContent = fmt(bestMs);
+    const fz = paused || isOver || calibrating;
+    if(smooth >= limit && !fz){ if(!overSince) overSince = performance.now(); }
+    else if(smooth < limit*.85 || fz) overSince = 0;     // hysteresis: must drop well below the limit to disarm
+    if(MODES[gameMode]) MODES[gameMode].tick(p,dt,t);
+    if(overSince && performance.now() - overSince >= holdMs && !nopop && !MODES[gameMode]) pop();
+  }
+  if(focusOn){ const left = focusEnd - performance.now(); if(left <= 0) stopFocus(true); else $('focusTime').textContent = fmt(left); }
+  requestAnimationFrame(tick);
+}
+
+function pop(){
+  popped = true; pops++; $('pops').textContent = pops; breakStreak();
+  const r = $('balloon').getBoundingClientRect(), cx = r.left + r.width/2, cy = r.top + r.height*0.35;
+  $('bw').style.visibility = 'hidden';
+  document.body.classList.remove('shake'); void document.body.offsetWidth; document.body.classList.add('shake');
+  for(let i=0;i<60;i++){
+    const b = document.createElement('div'); b.className = 'bit';
+    b.style.background = COLORS[i % COLORS.length]; b.style.left = cx+'px'; b.style.top = cy+'px'; document.body.appendChild(b);
+    const a = Math.random()*Math.PI*2, d = 120 + Math.random()*Math.max(innerWidth,innerHeight)*.5;
+    b.animate([{transform:'translate(0,0) rotate(0)',opacity:1},{transform:`translate(${Math.cos(a)*d}px,${Math.sin(a)*d+260}px) rotate(${Math.random()*900}deg)`,opacity:0}],{duration:1600,easing:'cubic-bezier(.1,.7,.4,1)'}).onfinish = () => b.remove();
+  }
+  $('msg').style.display = 'flex';
+  sfx.pop();
+  popTimer = setTimeout(reset, 3800);
+  if(gameMode === 'lives') livesOnPop();
+}
+function reset(){
+  clearTimeout(popTimer); const was = popped;
+  popped = false; smooth = 0; level = 0; overSince = 0; colorIdx++;
+  $('bw').style.visibility = 'visible'; $('msg').style.display = 'none';
+  if(was) sfx.happy();
+}
+
+function makePeer(){
+  const code = String(Math.floor(1000 + Math.random()*9000));
+  $('code').textContent = code; curCode = code; renderQR(code);
+  const peer = new Peer(PREFIX + code); displayPeer = peer;
+  peer.on('open', () => { if(!micStop && !remoteOn) $('status').textContent = 'Ready! Connect a phone or tap Enable mic.'; });
+  peer.on('disconnected', () => { try{ peer.reconnect(); }catch(e){} });
+  peer.on('error', e => {
+    if(e.type === 'unavailable-id'){ peer.destroy(); makePeer(); }
+    else $('status').textContent = 'Connection problem (' + e.type + '). Check the internet.';
+  });
+  peer.on('connection', conn => {
+    conn.on('open', () => { if(micStop){ micStop(); micStop = null; clearLevel(); } remoteOn = true; lastRemote = performance.now(); $('qrBox').style.display = 'none'; $('status').textContent = 'Phone mic connected!'; });
+    conn.on('data', d => { if(typeof d === 'number'){ lastRemote = performance.now(); remoteOn = true; pushLevel(d); } });
+    conn.on('close', () => { clearLevel(); remoteOn = false; renderQR(curCode); $('status').textContent = 'Phone disconnected'; autoMic(); });
+  });
+}
+function startDisplay(mode){
+  gameMode = mode || 'balloon'; initSession(); setupScene();
+  show('display'); $('status').textContent = 'Starting...';
+  if(!ticking){ ticking = true; requestAnimationFrame(tick); }
+  try{ makePeer(); }catch(e){ $('code').textContent = '----'; $('status').textContent = 'Phone link unavailable (no internet?). You can still use this device\'s mic.'; }
+  $('bMic').textContent = '🎤 Enable mic';
+  autoMic();   // start listening automatically (opened by a tap, so the browser allows it)
+}
+
+(function(){ const d = document.createElement('div'); d.id = 'micDbg'; d.style.cssText = 'position:fixed;left:50%;top:12px;transform:translateX(-50%);z-index:9;background:#fff;border:3px solid #2a1b4d;border-radius:14px;padding:1px 10px;font:700 12px system-ui;opacity:.9;white-space:nowrap;pointer-events:none;display:none'; document.body.appendChild(d); })();
+const micCb = v => { pushLevel(v); const d = $('micDbg'); if(d) d.textContent = '🎤 ' + Math.round(v) + ' · ' + (micInfo.label || 'default mic').replace(/\s*\(.*$/,'').slice(0,22); };
+let micWd = null, micTries = 0;
+function watchMic(){
+  clearTimeout(micWd);
+  micWd = setTimeout(() => { if(micStop && !remoteOn && micInfo.max < 0.0003) cycleMic(false); }, 3000);   // pure silence = wrong or muted device
+}
+async function cycleMic(manual){
+  if(remoteOn) return;
+  let devs = [];
+  try{ devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput' && d.deviceId); }catch(e){}
+  if(!manual && (micTries >= devs.length || devs.length < 2)){
+    $('status').textContent = 'No sound reaches the browser. Check: mic not muted (Fn key), Windows Settings > Privacy > Microphone is ON, and the input volume is up.';
+    return;
+  }
+  if(devs.length < 2){ $('status').textContent = 'Only one microphone found.'; return; }
+  micTries++;
+  let k = devs.findIndex(d => d.deviceId === micInfo.deviceId);
+  const d = devs[(k + 1) % devs.length];
+  if(micStop){ micStop(); micStop = null; } clearLevel();
+  $('status').textContent = 'Trying mic: ' + (d.label || 'microphone') + '...';
+  try{ await startMic(micCb, d.deviceId); $('status').textContent = 'Listening to: ' + (micInfo.label || 'this mic') + '. Stay calm and focused 🌿'; watchMic(); }
+  catch(e){ $('status').textContent = 'Could not open that mic (' + ((e && e.name) || 'error') + '). Tap the mic badge to try another.'; }
+}
+(function(){ const d = $('micDbg'); d.style.pointerEvents = 'auto'; d.style.cursor = 'pointer'; d.title = 'Tap to switch microphone'; d.onclick = () => cycleMic(true); })();
+async function autoMic(){
+  if(micStop || remoteOn) return;
+  try{
+    micTries = 0;
+    await startMic(micCb);
+    $('status').textContent = 'Stay calm and focused 🌿'; $('micDbg').style.display = 'block'; $('bMic').style.display = 'none';
+    watchMic();
+  }catch(e){
+    const n = (e && e.name) || 'Error';
+    $('status').textContent = n === 'NotFoundError' ? 'No microphone found on this device.'
+      : n === 'NotReadableError' ? 'Another app is using the mic. Close it and tap Enable mic.'
+      : (n === 'NoMediaApi' || !window.isSecureContext) ? 'Mic needs https:// or localhost. Open the page from GitHub Pages or a local server.'
+      : 'Mic blocked (' + n + '). Click the lock icon in the address bar, allow Microphone, then tap Enable mic.';
+    $('bMic').textContent = '🎤 Enable mic'; $('bMic').style.display = '';
+  }
+}
+$('bMic').onclick = autoMic;
+addEventListener('pointerdown', () => { if($('display').classList.contains('on') && !micStop && !remoteOn) autoMic(); });   // any tap retries the mic
+$('bSet').onclick = () => $('panel').classList.toggle('on');
+$('bReset').onclick = reset;
+$('bAgain').onclick = reset;
+$('bMute').onclick = () => { ensureAC(); muted = !muted; applyMute(); };
+$('bFocus').onclick = () => focusOn ? stopFocus(false) : startFocus();
+$('vol').oninput = e => { vol = +e.target.value; $('vVol').textContent = vol; if(musicG) musicG.gain.value = vol/100*0.8; };
+$('fmin').onchange = e => { focusMin = +e.target.value; };
+$('track').onchange = e => {
+  track = e.target.value; ensureAC(); clearTimeout(previewT);
+  if(focusOn){ startMusic(); return; }
+  startMusic(); previewT = setTimeout(() => { if(!focusOn) stopMusic(); }, 7000);
+};
+document.addEventListener('click', e => { if(e.target.closest('button')) sfx.click(); });
+addEventListener('keydown', e => {
+  if((e.key === 'm' || e.key === 'M') && $('display').classList.contains('on') && !['INPUT','SELECT'].includes(e.target.tagName)){ ensureAC(); muted = !muted; applyMute(); }
+});
+$('bX').onclick = () => $('panel').classList.remove('on');
+const SK = 'quietBalloonSettings';
+$('bSave').onclick = () => {
+  try{ localStorage.setItem(SK, JSON.stringify({limit, sens, hold: $('hold').value, vol, track, focusMin, muted, resp: $('resp').value, baseline, REW, MSG, LV, CEL, MC, CUSTOM, preset: presetKey})); }catch(e){}
+  $('panel').classList.remove('on'); $('status').textContent = 'Settings saved!';
+};
+function loadSettings(){
+  try{
+    const o = JSON.parse(localStorage.getItem(SK) || '{}');
+    [['limit',o.limit],['sens',o.sens],['hold',o.hold]].forEach(([id,v]) => { if(v != null){ $(id).value = v; $(id).dispatchEvent(new Event('input')); } });
+    if(o.vol != null){ vol = o.vol; $('vol').value = vol; $('vVol').textContent = vol; }
+    if(o.track){ track = o.track; $('track').value = track; }
+    if(o.focusMin){ focusMin = o.focusMin; $('fmin').value = focusMin; }
+    if(o.muted){ muted = true; $('bMute').textContent = '🔇'; }
+    if(o.resp){ $('resp').value = o.resp; $('resp').dispatchEvent(new Event('input')); }
+    if(o.baseline != null){ baseline = +o.baseline || 0; $('base').value = baseline; $('vBase').textContent = baseline; }
+    if(o.REW) Object.assign(REW, o.REW);
+    if(Array.isArray(o.MSG)) o.MSG.forEach((m,i) => { if(typeof m === 'string' && i < 4) MSG[i] = m.slice(0,70); });
+    if(o.LV) Object.assign(LV, o.LV);
+    if(o.CEL) Object.assign(CEL, o.CEL); if(o.MC) Object.assign(MC, o.MC); if(o.CUSTOM) CUSTOM = o.CUSTOM;
+    if(o.preset && o.preset !== 'std'){ presetKey = o.preset; $('preset').value = presetKey; const P = getPreset(); if(P){ nopop = !!P.nopop; rw = P.rw == null ? 1 : P.rw; } else presetKey = 'std'; }
+  }catch(e){}
+}
+$('limit').oninput = e => { limit = +e.target.value; $('vLimit').textContent = limit; $('flag').style.bottom = limit + '%'; };
+$('sens').oninput = e => { sens = +e.target.value; $('vSens').textContent = sens; };
+$('hold').oninput = e => { holdMs = e.target.value*100; $('vHold').textContent = (holdMs/1000).toFixed(1); };
+$('flag').style.bottom = limit + '%';
+addEventListener('keydown', e => { if(e.code === 'Space' && $('display').classList.contains('on') && !['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)){ e.preventDefault(); testLevel = 95; } });
+addEventListener('keyup', e => { if(e.code === 'Space') testLevel = 0; });
+$('bw').addEventListener('pointerdown', () => { testLevel = 95; });
+addEventListener('pointerup', () => { testLevel = 0; });
+
+$('bConnect').onclick = () => {
+  const code = $('pcode').value.trim();
+  if(code.length !== 4){ $('pstatus').textContent = 'Enter the 4-digit code first.'; return; }
+  $('pstatus').textContent = 'Connecting...';
+  const peer = new Peer(); phonePeer = peer;
+  peer.on('error', e => { $('pstatus').textContent = 'Could not connect (' + e.type + '). Check the code.'; });
+  peer.on('open', () => {
+    const conn = peer.connect(PREFIX + code, {reliable:false});
+    conn.on('open', async () => {
+      try{
+        await startMic(v => { if(conn.open) conn.send(v); $('ring').style.transform = `scale(${1 + v/60})`; });
+        $('pstatus').textContent = 'You are the class mic! Keep this screen on.';
+      }catch(e){ $('pstatus').textContent = 'Mic blocked. Allow mic access and try again.'; }
+    });
+    conn.on('close', () => { $('pstatus').textContent = 'Disconnected. Reload to connect again.'; });
+  });
+};
+function goHome(){
+  stopFocus(false); clearTimeout(previewT);
+  if(micStop){ micStop(); micStop = null; }
+  [displayPeer, phonePeer].forEach(p => { try{ p && p.destroy(); }catch(e){} });
+  displayPeer = phonePeer = null; remoteOn = false; clearLevel(); testLevel = 0; paused = false; calibrating = false; calibUI(null); $('over').style.display = 'none';
+  $('panel').classList.remove('on'); $('bMic').style.display = ''; $('micDbg').style.display = 'none';
+  $('pstatus').textContent = 'Not connected yet'; $('ring').style.transform = 'scale(1)';
+  reset(); show('home');
+}
+$('bBackD').onclick = goHome; $('bBackP').onclick = goHome;
+addEventListener('keydown', e => { if(e.key !== 'Escape') return; if($('panel').classList.contains('on')) $('panel').classList.remove('on'); else if(!$('home').classList.contains('on')) goHome(); });
+$('resp').oninput = e => { $('vResp').textContent = e.target.value; atk = .05 + e.target.value*.035; };
+$('base').oninput = e => { baseline = +e.target.value; $('vBase').textContent = baseline; };
+$('bPause').onclick = () => { paused = !paused; $('bPause').textContent = paused ? '▶ Resume' : '⏸ Pause'; $('status').textContent = paused ? 'Paused. Nothing is counted.' : 'Playing'; };
+$('bCal').onclick = offerCalib;
+$('calStart').onclick = () => { calibrating = true; calSamples = []; calEnd = performance.now() + 5000; calibUI('run','Shhh... listening to the room'); };
+$('calSkip').onclick = () => calibUI(null);
+function toggleFull(){
+  const d = document, el = d.documentElement; let r;
+  try{ r = d.fullscreenElement ? (d.exitFullscreen || d.webkitExitFullscreen).call(d) : (el.requestFullscreen || el.webkitRequestFullscreen).call(el); }catch(e){}
+  if(r && r.catch) r.catch(() => {});
+}
+$('bFull').onclick = $('bFullH').onclick = toggleFull;
+$('bRestart').onclick = () => { $('over').style.display = 'none'; isOver = false; lives = Math.min(LV.start, LV.max); roundPts = 0; breakStreak(); reset(); renderTag(); };
+$('bOverHome').onclick = goHome;
+const GAMES = [
+  {id:'balloon',t:'Quiet Balloon',d:'Keep the balloon safe by keeping the class calm.',e:'🎈',c:'#ff9ec4',on:1},
+  {id:'lives',t:'Balloon Lives',d:'Three balloons, three lives. Win lives back with quiet time!',e:'❤️',c:'#ffb3b3',on:1},
+  {id:'cloud',on:1,t:'Sleepy Cloud',d:'Help the little cloud fall asleep.',e:'☁️',c:'#c9d8ff'},
+  {id:'rocket',on:1,t:'Rocket Launch',d:'Fill the fuel tank with focus time.',e:'🚀',c:'#d8c4ff'},
+  {id:'garden',on:1,t:'Quiet Garden',d:'Grow a garden from quiet minutes.',e:'🌻',c:'#c4f0a8'},
+  {id:'weather',on:1,t:'Weather World',d:'Calm brings sunshine, noise brings clouds.',e:'🌦️',c:'#bfe6ff'},
+  {t:'Dream Team Stadium',d:'Score goals and light up the stadium.',e:'⚽',c:'#b8f0c8'},
+  {t:'Team Balloon Challenge',d:'Teams cheer together and collect points.',e:'👥',c:'#ffe08a'}];
+GAMES.forEach(g => {
+  const d = document.createElement('div'); d.className = 'card' + (g.on ? '' : ' soon'); d.style.background = g.c;
+  d.innerHTML = `<div class="art">${g.e}</div><h3>${g.t}</h3><p>${g.d}</p>`;
+  const b = document.createElement('button'); b.textContent = g.on ? 'Play' : 'Coming soon'; b.disabled = !g.on; b.className = g.on ? 'pink' : 'white';
+  if(g.on) b.onclick = () => startDisplay(g.id); d.appendChild(b); $('cards').appendChild(d);
+});
+(function(){ const fx = document.createElement('div'); fx.id = 'fx'; fx.setAttribute('aria-hidden','true');
+  for(let i = 0; i < 16; i++){ const b = document.createElement('i'), z = 10 + Math.random()*26;
+    b.style.cssText = 'left:' + (Math.random()*100) + 'vw;width:' + z + 'px;height:' + z + 'px;animation-duration:' + (9 + Math.random()*12) + 's;animation-delay:-' + (Math.random()*20) + 's'; fx.appendChild(b); }
+  document.body.insertBefore(fx, document.getElementById('hills')); })();
+
+
+// ---------- Quiet Garden (permanent, never punishes) ----------
+(function(){
+const GK='quietGarden', GR={seed:1,s3:2,s5:3,w5:1,w10:2,star10:1,waterEvery:2,xpMin:10,grow:[1,2,3,4]};   // reward values: edit here
+const TY=[{k:'daisy',n:'Daisy',c:3,p:'#fff',m:'#ffd23f'},{k:'sunflower',n:'Sunflower',c:5,p:'#ffd23f',m:'#7a4a1a'},{k:'tulip',n:'Tulip',c:5,p:'#ff6b9d',m:'#ff3d7f'},{k:'rose',n:'Rose',c:8,p:'#e0344d',m:'#a31d34'},{k:'tree',n:'Apple tree',c:20}];
+const LVN=[['Empty Meadow',0],['Little Sprouts',100],['Growing Garden',250],['Flower Valley',500],['Blooming Paradise',900],['Nature Haven',1400],['Magical Garden',2000],['Garden Wonderland',3000],['Rainbow Paradise',4500],['Legendary Garden',6500]];
+const STG=['Seed','Sprout','Growing','Blooming','Mature'], INK='#2a1b4d';
+const SP=[]; [235,315].forEach((y,r) => [250,380,510,640,770].forEach(x => SP.push({x,y,s:r?1:.85})));
+let G = null; try{ G = JSON.parse(localStorage.getItem(GK)); }catch(e){}
+if(!G || G.v !== 1 || !Array.isArray(G.plants)) G = {v:1,seeds:3,water:0,stars:0,xp:0,plants:[],first:true};
+['seeds','water','stars','xp'].forEach(k => { G[k] = +G[k] || 0; });
+const save = () => { try{ localStorage.setItem(GK, JSON.stringify(G)); }catch(e){} };
+const lvl = () => { let l = 0; LVN.forEach((a,i) => { if(G.xp >= a[1]) l = i; }); return l; };
+let sel = null, pick = 'daisy', prev = 0;
+const say = t => { const m = $('gmsg'); if(m) m.textContent = t; };
+function addXP(n){ const a = lvl(); G.xp += n; const b = lvl(); if(b > a){ G.seeds += 5; celebrate({msg:'GARDEN LEVEL ' + (b+1) + ': ' + LVN[b][0].toUpperCase() + '!'}); say('Garden level up! +5 seeds'); } }
+const leaf = (x,y,r) => `<ellipse cx="${x}" cy="${y}" rx="9" ry="5" transform="rotate(${r} ${x} ${y})" fill="#3dbb7e" stroke="${INK}" stroke-width="2.5"/>`;
+function art(k,st){
+  if(st === 0) return `<ellipse cx="0" cy="-4" rx="7" ry="5" fill="#7a4a1a" stroke="${INK}" stroke-width="2"/>`;
+  if(k === 'tree' && st >= 2){
+    const h = [0,0,30,46,60][st], r = [0,0,18,28,40][st];
+    let g = `<rect x="-6" y="${-h}" width="12" height="${h}" fill="#8a5a2b" stroke="${INK}" stroke-width="3"/><circle cx="0" cy="${-h-r*.6}" r="${r}" fill="#4cc77f" stroke="${INK}" stroke-width="4"/>`;
+    if(st === 4) g += [[-16,-8],[10,-14],[0,6],[-6,-26]].map(a => `<circle cx="${a[0]}" cy="${-h-r*.6+a[1]}" r="5" fill="#e0344d" stroke="${INK}" stroke-width="2"/>`).join('');
+    return g;
+  }
+  const h = [0,22,38,50,62][st], T = TY.find(x => x.k === k) || TY[0];
+  let g = `<path d="M0 0V${-h}" stroke="#2f9e63" stroke-width="5" stroke-linecap="round"/>` + leaf(-9,-h*.35,-30) + leaf(9,-h*.55,30);
+  if(st >= 3 && k !== 'tree'){ const R = st === 3 ? 8 : 13, pr = st === 3 ? 6 : 10;
+    for(let i=0;i<6;i++){ const a = i*Math.PI/3; g += `<circle cx="${(Math.cos(a)*R).toFixed(1)}" cy="${(-h+Math.sin(a)*R).toFixed(1)}" r="${pr}" fill="${T.p}" stroke="${INK}" stroke-width="2.5"/>`; }
+    g += `<circle cx="0" cy="${-h}" r="${st === 3 ? 5 : 8}" fill="${T.m}" stroke="${INK}" stroke-width="2.5"/>`; }
+  return g;
+}
+function render(){
+  const s = $('gsvg'); if(!s) return; const l = lvl(), nx = LVN[l+1];
+  let h = `<circle cx="560" cy="75" r="34" fill="#ffd23f" stroke="${INK}" stroke-width="4"/><path d="M-1500 150C-900 60-300 130 300 140S1000 60 1700 130S2400 90 2700 140V1400H-1500Z" fill="#7be0a3" stroke="${INK}" stroke-width="5"/><path d="M-1500 200C-800 170-200 215 400 205S1100 175 1800 210S2400 190 2700 205V1400H-1500Z" fill="#5fd08f" stroke="${INK}" stroke-width="5"/>`;
+  SP.forEach((p,i) => { const pl = G.plants.find(q => q.spot === i);
+    h += `<g class="gs" data-s="${i}" transform="translate(${p.x} ${p.y}) scale(${p.s})"><rect x="-48" y="-95" width="96" height="112" fill="transparent"/><ellipse cx="0" cy="0" rx="42" ry="15" fill="#8a5a2b" stroke="${INK}" stroke-width="4"/>`
+      + (pl ? `<g class="sw">${art(pl.t,pl.st)}</g>` : `<text y="7" text-anchor="middle" font-size="20" font-weight="700" fill="#fff" opacity=".85">+</text>`)
+      + (pl && pl.id === sel ? `<ellipse rx="50" ry="19" fill="none" stroke="#ff6b9d" stroke-width="5" stroke-dasharray="8 6"/>` : '') + '</g>'; });
+  s.innerHTML = h;
+  $('gR').innerHTML = `<span>🌻 Lv ${l+1} ${LVN[l][0]}</span><span>✨ XP ${G.xp}${nx ? '/' + nx[1] : ''}</span><span>🌱 ${G.seeds} seeds</span><span>💧 ${G.water} water</span><span>⭐ ${G.stars} stars</span>`;
+  document.querySelectorAll('#gbar [data-k]').forEach(b => b.setAttribute('aria-pressed', b.dataset.k === pick));
+  const n = G.plants.length; $('gf1').style.display = n >= 3 ? 'block' : 'none'; $('gf2').style.display = G.plants.some(q => q.t === 'tree' && q.st >= 2) ? 'block' : 'none'; $('gf3').style.display = n >= 5 ? 'block' : 'none';
+}
+function reward(k){
+  let sd = GR.seed, w = k % GR.waterEvery === 0 ? 1 : 0, st = 0;
+  if(k === 3) sd += GR.s3; if(k === 5){ sd += GR.s5; w += GR.w5; } if(k === 10){ w += GR.w10; st += GR.star10; }
+  G.seeds += sd; G.water += w; G.stars += st; addXP(GR.xpMin); save(); render();
+  say(`Great focus! +${sd} seed${sd > 1 ? 's' : ''}${w ? ' +' + w + ' water' : ''}${st ? ' +' + st + ' star' : ''}`);
+}
+function onSpot(i){
+  const pl = G.plants.find(q => q.spot === i);
+  if(pl){ sel = pl.id; say(`${TY.find(x => x.k === pl.t).n}: ${STG[pl.st]}${pl.st < 4 ? '. Water it with ' + GR.grow[pl.st] + ' drop(s)' : '. Fully grown!'}`); }
+  else { const T = TY.find(x => x.k === pick);
+    if(G.seeds < T.c){ say(`Need ${T.c - G.seeds} more seed(s). Keep the class focused to earn seeds!`); }
+    else { G.seeds -= T.c; const q = {id:Date.now() + '-' + i, t:pick, spot:i, st:0}; G.plants.push(q); sel = q.id; addXP(5); save(); say(`Planted a ${T.n}! Earn water drops to help it grow.`); }
+  }
+  render();
+}
+function water(){
+  const pl = G.plants.find(q => q.id === sel);
+  if(!pl) return say('Tap a plant first, then press Water.');
+  if(pl.st >= 4) return say('This plant is fully grown. Plant something new!');
+  const need = GR.grow[pl.st];
+  if(G.water < need) return say(`Needs ${need} water drop(s). Focus time earns water!`);
+  G.water -= need; pl.st++; addXP(20); save(); render(); sfx.happy(); say(`It grew to the ${STG[pl.st]} stage!`);
+}
+MODES.garden = {
+  html: () => `<div id="gd"><svg id="gsvg" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMax meet" aria-label="Garden"></svg></div><span class="gfly" id="gf1">🦋</span><span class="gfly" id="gf2" style="animation-delay:-6s">🐦</span><span class="gfly" id="gf3" style="animation-delay:-11s">🐝</span>
+   <div id="ghud" class="sticker"><div class="r" id="gR"></div><div id="gmsg"></div></div>
+   <div id="gbar">${TY.map(t => `<button class="white" data-k="${t.k}" aria-pressed="false">${t.n} ${t.c}🌱</button>`).join('')}<button class="mint" id="gW">💧 Water plant</button></div>`,
+  init(){
+    prev = 0; sel = null;
+    $('gsvg').onclick = e => { const g = e.target.closest('[data-s]'); if(g) onSpot(+g.dataset.s); };
+    document.querySelectorAll('#gbar [data-k]').forEach(b => b.onclick = () => { pick = b.dataset.k; render(); });
+    $('gW').onclick = water; render();
+    if(G.first){ G.first = false; save(); say('WELCOME TO QUIET GARDEN! Pick a plant, tap a soil spot, then earn water to grow it.'); }
+    else say('Welcome back! Your garden is just as you left it.');
+  },
+  tick(p,dt,t){
+    if(streakMs >= prev) for(let k = Math.floor(prev/60000) + 1; k <= Math.floor(streakMs/60000); k++) reward(k);
+    prev = streakMs; const r = streakMs % 60000; setBar(r/60000, 'Next seed in ' + Math.ceil((60000 - r)/1000) + 's');
+  }
+};
+})();
+// ---------- Voice level: class expectation (reuses the existing limit/hold/preset engine) ----------
+(function(){
+const VL = [
+ {n:'SILENT',e:'🤐',c:'#d3d8e2',d:'No talking',a:'NOW SWITCHING TO SILENT MODE!'},
+ {n:'WHISPER',e:'🤫',c:'#8fd0ff',d:'Very quiet partner talk',a:'WHISPER VOICES, PLEASE!'},
+ {n:'GROUP VOICE',e:'💬',c:'#8fe3a8',d:'Normal talking with your group',a:"IT'S GROUP DISCUSSION TIME!"},
+ {n:'PRESENTATION',e:'📣',c:'#ffc16b',d:'Big speaking voice for the whole class',a:'TIME TO SHARE YOUR IDEAS!'}];
+Object.assign(PRESETS,{vl0:{n:'Silent',limit:30,hold:6,resp:6,rw:1.5},vl1:{n:'Whisper Voice',limit:45,hold:8,resp:5,rw:1.25},vl2:{n:'Group Voice',limit:65,hold:15,resp:4,rw:1},vl3:{n:'Presentation Voice',limit:85,hold:25,resp:3,rw:1}});
+const MAP = {vl0:0,vl1:1,vl2:2,vl3:3,silent:0,teach:0,indep:1,group:2,collab:2,celeb:3};
+const KEY = 'quietBalloonVoice';
+let home = null; try{ const v = localStorage.getItem(KEY); if(v !== null && v !== '' && VL[+v]) home = +v; }catch(e){}
+const OK = ['Amazing! Your classroom is at the perfect voice level!','Great teamwork!','Excellent focus, Dream Team!',"You're doing brilliantly!"];
+const MID = ["Let's bring our voices down a little.","Let's find our classroom balance."];
+const HI = ["Let's pause and reset our voice level.","Take a breath, team. Let's try again."];
+const rnd = a => a[Math.floor(Math.random()*a.length)];
+let annT = null;
+function announce(l){
+  const el = $('vlAnn'), V = VL[l]; el.style.background = V.c; el.innerHTML = `<span class="ae">${V.e}</span><span>${V.a}</span>`;
+  el.classList.remove('on'); void el.offsetWidth; el.classList.add('on'); clearTimeout(annT); annT = setTimeout(() => el.classList.remove('on'), 2800);
+}
+function renderHome(){
+  document.querySelectorAll('.vlc').forEach(b => { const on = +b.dataset.l === home; b.classList.toggle('sel', on); b.setAttribute('aria-pressed', on); });
+  $('vlNow').innerHTML = home == null ? 'Tap a level to tell the class what voice we need.' : `Class expectation: <b>${VL[home].e} LEVEL ${home} – ${VL[home].n}</b>. ${VL[home].d}.`;
+}
+function setLevel(l){
+  home = l; try{ localStorage.setItem(KEY, l); }catch(e){}
+  renderHome();
+  if($('display').classList.contains('on')){ applyPreset('vl'+l); $('preset').value = 'vl'+l; announce(l); }
+}
+VL.forEach((V,i) => {
+  const b = document.createElement('button'); b.className = 'vlc'; b.dataset.l = i; b.style.background = V.c;
+  b.innerHTML = `<span class="e">${V.e}</span><span class="n">${i}</span><b>${V.n}</b><small>${V.d}</small>`; b.onclick = () => setLevel(i); $('vlRow').appendChild(b);
+  const m = document.createElement('button'); m.textContent = i; m.style.background = V.c; m.setAttribute('aria-label','Voice level '+i+' '+V.n); m.title = V.n; m.onclick = () => setLevel(i); $('vlB').appendChild(m);
+});
+renderHome();
+const sd = startDisplay;
+startDisplay = function(m){ sd(m); if(home != null){ applyPreset('vl'+home); $('preset').value = 'vl'+home; announce(home); } };
+// live status: gentle after 3 s above target, strong after 8 s, recovered after 2 s below
+let above = 0, below = 0, st = -1, lastOk = 0;
+setInterval(() => {
+  if(!$('display').classList.contains('on')) return;
+  const cur = MAP[presetKey], V = VL[cur];
+  $('vlT').textContent = (V ? `${V.e} VOICE LEVEL ${cur} – ${V.n}` : '🔊 VOICE LEVEL: pick one below') + ($('vlTag').classList.contains('min') ? ' ' + ($('vlS').textContent || '').slice(0,2) : '');
+  $('vlTag').style.borderColor = V ? '#2a1b4d' : '#2a1b4d'; if(!st || st < 1) $('vlTag').style.background = V ? V.c : '';
+  document.querySelectorAll('#vlB button').forEach((b,i) => b.setAttribute('aria-pressed', i === cur));
+  const on = !!(micStop || remoteOn), live = on && V && !paused && !isOver && !calibrating && !nopop, p = smooth/limit;
+  let txt, ns = 0;
+  if(!live){ above = below = 0; ns = 0; txt = !on ? '🎤 Waiting for the mic' : nopop ? '🎉 Celebration: no limit' : paused ? '⏸ Paused' : V ? '' : 'Tap 0–3 to set it'; }
+  else {
+    if(p >= .9){ above += 250; below = 0; } else if(p < .75){ below += 250; if(below >= 2000) above = 0; } else below = 0;
+    ns = above >= 8000 ? 2 : above >= 3000 ? 1 : 0;
+    txt = ['✅ WITHIN TARGET','🟡 A LITTLE LOUD','🟠 LET\'S RESET OUR VOICES'][ns];
+  }
+  $('vlS').textContent = txt;
+  if(ns !== st){
+    const was = st; st = ns; $('vlTag').className = 'sticker s' + ns; if(ns === 0 && V) $('vlTag').style.background = V.c; else $('vlTag').style.background = '';
+    $('vlM').textContent = ns === 1 ? rnd(MID) : ns === 2 ? rnd(HI) : (was > 0 ? rnd(OK) : ''); lastOk = performance.now();
+  } else if(ns === 0 && live && performance.now() - lastOk > 30000){ $('vlM').textContent = rnd(OK); lastOk = performance.now(); }
+}, 250);
+})();
+loadSettings();
+track = 'off'; try{ $('track').value = 'off'; }catch(e){}   // music removed
+function buildRewardUI(){
+  const box = $('rewBox'); box.innerHTML = '';
+  const add = (label,type,val,set,min,max) => {
+    const l = document.createElement('label'); l.textContent = label; const i = document.createElement('input'); i.type = type;
+    if(type === 'number'){ i.min = min; i.max = max; i.step = 'any'; } else i.maxLength = 70;
+    i.value = val; i.oninput = () => set(i.value); l.appendChild(i); box.appendChild(l);
+  };
+  [['pm','Points per quiet minute'],['b3','3-minute bonus'],['b5','5-minute bonus'],['b10','10-minute bonus']].forEach(([k,l]) => add(l,'number',REW[k],v => REW[k] = Math.max(0,+v||0),0,500));
+  ['Bronze star message','Silver star message','Golden star message','Diamond star message'].forEach((l,i) => add(l,'text',MSG[i],v => MSG[i] = v));
+  [['start','Balloon Lives: starting lives',1,5],['max','Balloon Lives: maximum lives',1,5],['rec','Quiet minutes to win a life back',1,10]].forEach(([k,l,mn,mx]) => add(l,'number',LV[k],v => LV[k] = Math.min(mx,Math.max(mn,+v||mn)),mn,mx));
+  [['sleep','Sleepy Cloud: quiet minutes to fall asleep',1,10],['fuel','Rocket: focus seconds per 5% fuel',5,120],['drain','Rocket: fuel lost per second when noisy (0 = just pause)',0,5]].forEach(([k,l,mn,mx]) => add(l,'number',MC[k],v => MC[k] = Math.min(mx,Math.max(mn,+v||mn)),mn,mx));
+}
+buildRewardUI(); renderAch();
+function buildCelUI(){
+  const b = $('celBox'); b.innerHTML = '';
+  const chk = (label,val,set) => { const l = document.createElement('label'), i = document.createElement('input'); i.type = 'checkbox'; i.checked = val; i.style.cssText = 'width:auto;margin-right:8px'; i.onchange = () => set(i.checked); l.append(i, document.createTextNode(label)); b.appendChild(l); };
+  const sel = (label,opts,val,set) => { const l = document.createElement('label'), x = document.createElement('select'); l.textContent = label; opts.forEach(([v,t]) => { const o = document.createElement('option'); o.value = v; o.textContent = t; x.appendChild(o); }); x.value = val; x.onchange = () => set(+x.value); l.appendChild(x); b.appendChild(l); };
+  chk('Random celebrations',CEL.on,v => CEL.on = v); chk('Celebration sounds',CEL.sound,v => CEL.sound = v);
+  sel('Celebrate when the class stays quiet for',[[0,'Off'],[3,'3 minutes'],[5,'5 minutes'],[10,'10 minutes'],[15,'15 minutes']],CEL.target,v => CEL.target = v);
+  sel('Celebration length',[[4,'4 seconds'],[6,'6 seconds'],[10,'10 seconds']],CEL.dur,v => CEL.dur = v);
+  CELS.forEach((c,i) => chk(c.n,CEL.en[i],v => CEL.en[i] = v));
+  const t = document.createElement('button'); t.className = 'white'; t.textContent = 'Preview a celebration'; t.style.marginTop = '8px'; t.onclick = () => celebrate({force:1}); b.appendChild(t);
+}
+buildCelUI();
+$('preset').onchange = e => applyPreset(e.target.value);
+$('bSaveCustom').onclick = () => { CUSTOM = {n:'My custom',limit,hold:$('hold').value,resp:$('resp').value,rw:1}; presetKey = 'custom'; $('preset').value = 'custom'; renderTag(); $('status').textContent = 'Saved as My custom. Tap Save & close to keep it.'; };
+const pair = new URLSearchParams(location.search).get('pair');
+if(/^\d{4}$/.test(pair || '')){ show('phone'); $('pcode').value = pair; $('pstatus').textContent = 'Tap Connect, then allow the microphone.'; }
+$('bPhone').onclick = () => show('phone');
+
+(function(){
+  const lc = document.createElement('div'); lc.id = 'lcol'; $('display').appendChild(lc); lc.append($('vlTag'), $('mwrap'));
+  const f = $('flag'), m = $('meter'), L = $('limit'); let drag = false;
+  f.addEventListener('pointerdown', e => { drag = true; try{ f.setPointerCapture(e.pointerId); }catch(x){} e.preventDefault(); e.stopPropagation(); });
+  f.addEventListener('pointermove', e => {
+    if(!drag) return; const r = m.getBoundingClientRect();
+    const v = Math.max(+L.min, Math.min(+L.max, Math.round((r.bottom - e.clientY)/r.height*100)));
+    L.value = v; L.dispatchEvent(new Event('input'));
+  });
+  ['pointerup','pointercancel'].forEach(t => f.addEventListener(t, () => { drag = false; }));
+})();
+
+(function(){
+  const K = 'quietBalloonUI'; let U = {}; try{ U = JSON.parse(localStorage.getItem(K)) || {}; }catch(e){}
+  const sv = () => { try{ localStorage.setItem(K, JSON.stringify(U)); }catch(e){} };
+  function mk(host, id, cls, label, collapsedLabel, key){
+    const b = document.createElement('button'); b.id = id; b.className = 'white';
+    const ap = () => { host.classList.toggle('min', !!U[key]); b.textContent = U[key] ? collapsedLabel : label; b.setAttribute('aria-expanded', !U[key]); };
+    b.onclick = () => { U[key] = !U[key]; sv(); ap(); }; ap(); return b;
+  }
+  $('vlTag').appendChild(mk($('vlTag'), 'vlMin', '', '▾', '▸', 'vl'));
+  $('join').prepend(mk($('join'), 'joinMin', '', '📱 Phone code ▾', '📱 Phone code ▸', 'join'));
+  // the top-left status bubble stays hidden, except for mic / connection problems
+  const st = $('status'); let t = null;
+  new MutationObserver(() => {
+    if(/mic|phone|signal|connection|internet|https|blocked|disconnect/i.test(st.textContent)){ st.classList.add('show'); clearTimeout(t); t = setTimeout(() => st.classList.remove('show'), 7000); }
+    else st.classList.remove('show');
+  }).observe(st, {childList:true, characterData:true, subtree:true});
+})();
+
+(function(){ const b = $('bar'), m = $('modeTag'); if(b && m) b.insertBefore(m, $('status')); })();
+</script>
+</body>
+</html>
